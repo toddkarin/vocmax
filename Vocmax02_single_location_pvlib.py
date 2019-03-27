@@ -39,7 +39,7 @@ weather = pd.DataFrame.from_dict({
 
 # Panel tilt.
 surface_tilt = info['Latitude'][0]
-surface_azimuth=180
+surface_azimuth = 180
 system = pvlib.pvsystem.PVSystem(module_parameters=module_parameters,
                                  inverter_parameters=inverter_parameters,
                                  surface_tilt=surface_tilt,
@@ -54,7 +54,22 @@ print('Running...')
 mc.run_model(times=weather.index, weather=weather)
 print('done.')
 
-mean_yearly_min_ambient_temp = vocmaxlib.mean_yearly_min_temp(weather.index, weather['temp_air'])
+# Calculate standard values
+temperature = {
+    'mean_yearly_min_ambient_temp': vocmaxlib.mean_yearly_min_temp(weather.index, weather['temp_air']),
+    'historical_min_ambient_temp': weather['temp_air'].min(),
+}
+
+voc = {
+    'traditional_1sun_min_temp': mc.system.sapm(1, temperature['mean_yearly_min_ambient_temp'])['v_oc'],
+    'P99': np.nanpercentile(mc.dc['v_oc'],99),
+    'P99p9': np.nanpercentile(mc.dc['v_oc'],99.9),
+    'historical_max':mc.dc['v_oc'].max(),
+    # 'Normal': mc.system.sapm((weather['dni'] + weather['dhi']) / 1000, mc.temps['temp_cell'])['v_oc'].max()
+}
+
+
+
 
 
 
@@ -100,6 +115,7 @@ voc_list = {
  }
 
 print('Plotting...')
+pd.plotting.register_matplotlib_converters(explicit=True)
 fig_width = 4
 fig_height = 6
 
