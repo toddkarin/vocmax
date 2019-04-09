@@ -18,7 +18,7 @@ import vocmaxlib
 # ------------------------------------------------------------------------------
 # If the module is in the CEC database, then can retieve parameters.
 cec_modules = vocmaxlib.cec_modules
-module_parameters = cec_modules['1Soltech_1STH_215_P'].to_dict()
+module_parameters = cec_modules['Panasonic_Group_SANYO_Electric_VBHN330SA16'].to_dict()
 module_parameters['FD'] = 1
 
 # Or can build a dictionary of paramaters manually, see:
@@ -120,6 +120,26 @@ print('\n** Voc Results **')
 print(voc_summary.to_string())
 
 
+# Calculate Voc vs. temperature for finding coeffiencts.
+temp_cell_smooth = np.linspace(-20,100,100)
+voc_smooth =  vocmaxlib.calculate_voc(1000, temp_cell_smooth, module_parameters)
+voc_fit_coeff = np.polyfit(temp_cell_smooth, voc_smooth, 1)
+print(voc_fit_coeff)
+
+# Voc as STC
+voc_o = np.polyval(voc_fit_coeff, 25)
+B_voco = voc_fit_coeff[0]
+
+# Calculat IV curves.
+irradiance_list = [200,400,600,800,1000]
+iv_curve = []
+for e in irradiance_list:
+
+    ret = vocmaxlib.calculate_iv_curve(e, 25, module_parameters)
+    ret['effective_irradiance'] = e
+    iv_curve.append(ret)
+
+
 # ------------------------------------------------------------------------------
 # Plot results
 # ------------------------------------------------------------------------------
@@ -161,7 +181,25 @@ for j in voc_summary.index:
              rotation=90,
              verticalalignment='bottom',
              horizontalalignment='center')
-
+plt.ylabel("Voc (V)")
 
 plt.show()
 
+
+# Plot Voc vs. cell temperature.
+plt.figure(2)
+plt.clf()
+plt.plot(temp_cell_smooth,voc_smooth)
+plt.xlabel('Cell Temperature (C)')
+plt.ylabel("Voc (V)")
+
+
+# Plot IV curve
+plt.figure(3)
+plt.clf()
+for j in range(len(iv_curve)):
+    plt.plot(iv_curve[j]['v'], iv_curve[j]['i'])
+
+plt.xlabel('Voltage (V)')
+plt.ylabel('Current (A)')
+plt.grid()

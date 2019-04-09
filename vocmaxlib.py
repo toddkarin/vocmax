@@ -1,7 +1,16 @@
+"""
+vocmaxlib
+
+Module for performing maximum string voltage calculations.
+
+toddkarin
+"""
+
+
 import numpy as np
 import pvlib
-import nsrdbtools
-import socket
+# import nsrdbtools
+# import socket
 # import matplotlib
 # matplotlib.use('TkAgg')
 # import matplotlib.pyplot as plt
@@ -250,9 +259,9 @@ def make_voc_summary(df,module_parameters,max_string_voltage=1500):
     # Calculate some standard voc values.
     voc_values = {
         'Hist': df['v_oc'].max(),
-        'Trad': calculate_voc(1, mean_yearly_min_temp,
+        'Trad': calculate_voc(1000, mean_yearly_min_temp,
                                         module_parameters),
-        'Day': calculate_voc(1, mean_yearly_min_day_temp,
+        'Day': calculate_voc(1000, mean_yearly_min_day_temp,
                                         module_parameters),
         'Norm_P99.5':
             np.percentile(
@@ -390,7 +399,7 @@ def calculate_normal_voc(poa_direct, poa_diffuse, temp_cell, module_parameters,
 
 
 def calculate_effective_irradiance(poa_direct, poa_diffuse, spectral_loss=1,
-                                   aoi_loss=1, FD=1,reference_irradiance=1000):
+                                   aoi_loss=1, FD=1):
     """
 
     Parameters
@@ -400,15 +409,15 @@ def calculate_effective_irradiance(poa_direct, poa_diffuse, spectral_loss=1,
     spectral_loss
     aoi_loss
     FD
-    reference_irradiance
 
     Returns
     -------
+        effective_irradiance in W/m^2
 
     """
     # See pvlib.pvsystem.sapm_effective_irradiance for source of this line:
     effective_irradiance = spectral_loss * (
-            poa_direct * aoi_loss + FD * poa_diffuse) / reference_irradiance
+            poa_direct * aoi_loss + FD * poa_diffuse)
     return effective_irradiance
 
 
@@ -420,6 +429,7 @@ def calculate_voc(effective_irradiance, temperature, module_parameters):
     Parameters
     ----------
     effective_irradiance
+        Irradiance in W/m^2
     temperature
     module_parameters
         Dict or Series containing the fields:
@@ -480,6 +490,33 @@ def calculate_voc(effective_irradiance, temperature, module_parameters):
                                                method='newton')
     return v_oc
 
+def calculate_iv_curve(effective_irradiance, temperature, module_parameters,
+                       ivcurve_pnts=200):
+    """
+
+    :param effective_irradiance:
+    :param temperature:
+    :param module_parameters:
+    :param ivcurve_pnts:
+    :return: dict
+        iv curve containing fields 'i' and 'v'.
+    """
+    photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth = \
+        pvlib.pvsystem.calcparams_cec(effective_irradiance,
+                                      temperature,
+                                      module_parameters['alpha_sc'],
+                                      module_parameters['a_ref'],
+                                      module_parameters['I_L_ref'],
+                                      module_parameters['I_o_ref'],
+                                      module_parameters['R_sh_ref'],
+                                      module_parameters['R_s'],
+                                      module_parameters['Adjust'],
+                                      )
+    iv_curve = pvlib.pvsystem.singlediode(photocurrent, saturation_current,
+                               resistance_series, resistance_shunt, nNsVth,
+                               ivcurve_pnts=ivcurve_pnts, method='lambertw')
+
+    return iv_curve
 
 def calculate_mean_yearly_min_temp(datetimevec, temperature):
     """
