@@ -25,53 +25,91 @@ vocmaxlib_version = '0.1.0'
 def simulate_system(weather, info, module_parameters, racking_parameters, thermal_model):
     """
 
+    Use the PVLIB singlediode model to calculate maximum Voc.
+
     Parameters
     ----------
-    weather
-        Dataframe of weather data, includes fields
+    weather : Dataframe
+        Weather data
             'dni': Direct Normal Irradiance (W/m^2)
             'dhi': Diffuse Horizontal Irradiance (W/m^2)
             'ghi' Global Horizontal Irradiance (W/m^2)
             'temp_air': air temperature (C)
             'wind_speed': 10 m wind speed in (m/s)
-    info
-        Dictionary containing fields
+
+    info : dict
+        Dictionary containing location information with fields:
             'Latitude': latitude in degrees
             'Longitude': longitude in degrees.
-    module_parameters
-        Dict or Series containing the fields:
 
-        'alpha_sc': The short-circuit current temperature coefficient of the
-        module in units of A/C.
+    module_parameters : dict
+        Dict or Series containing the fields diescribing the module
 
-        'a_ref': The product of the usual diode ideality factor (n,
-        unitless), number of cells in series (Ns), and cell thermal voltage
-        at reference conditions, in units of V
+            'alpha_sc': The short-circuit current temperature coefficient of the
+            module in units of A/C.
 
-        'I_L_ref': The light-generated current (or photocurrent) at reference
-        conditions, in amperes.
+            'a_ref': The product of the usual diode ideality factor (n,
+            unitless), number of cells in series (Ns), and cell thermal voltage
+            at reference conditions, in units of V
 
-        'I_o_ref': The dark or diode reverse saturation current at reference
-        conditions, in amperes.
+            'I_L_ref': The light-generated current (or photocurrent) at reference
+            conditions, in amperes.
 
-        'R_sh_ref': The shunt resistance at reference conditions, in ohms.
+            'I_o_ref': The dark or diode reverse saturation current at reference
+            conditions, in amperes.
 
-        'R_s': The series resistance at reference conditions, in ohms.
+            'R_sh_ref': The shunt resistance at reference conditions, in ohms.
 
-        'Adjust': The adjustment to the temperature coefficient for short
-        circuit current, in percent.    racking_parameters
-        dictionary
+            'R_s': The series resistance at reference conditions, in ohms.
 
-        'aoi_model': (optional). Model for angle of incidence losses (
-        reflection losses), can be 'ashrae' or 'no_loss'. default is 'no_loss'.
+            'Adjust': The adjustment to the temperature coefficient for short
+            circuit current, in percent.    racking_parameters
+            dictionary
 
-        'ashrae_iam_param': (optional). If aoi_model is 'ashrae', specify the
-        ashrae coefficient. Typical value is 0.05.
+            'aoi_model': (optional). Model for angle of incidence losses (
+            reflection losses), can be 'ashrae' or 'no_loss'. default is
+            'no_loss'.
+
+            'ashrae_iam_param': (optional). If aoi_model is 'ashrae', specify
+            the ashrae coefficient. Typical value is 0.05.
 
 
-    racking_parameters
+    racking_parameters : dict
+        dictionary describing the racking setup. Contains fields
+
+            'racking_type' : str. Can be 'fixed_tilt' for a stationary PV system
+            or 'single_axis' for a single axis tracker.
+
+            'surface_tilt' : float. If racking_type is 'fixed_tilt', specify the
+            surface tilt in degrees from horizontal.
+
+            'surface_azimuth' : float. If racking type is 'surface_azimuth', specify
+            the racking azimuth in degrees. A value of 180 degrees has the
+            module face oriented due South.
+
+            'axis_tilt' : float. If racking_type is 'single_axis', specify the the
+            tilt of the axis of rotation (i.e, the y-axis defined by
+            axis_azimuth) with respect to horizontal, in decimal degrees.
+            Standard value is 0.
+
+            'axis_azimuth' : float. If racking_type is 'single_axis', specify a
+            value denoting the compass direction along which the axis of
+            rotation lies. Measured in decimal degrees East of North.
+            Standard value is 0.
+
+            'backtrack' : bool. Controls whether the tracker has the
+            capability to ''backtrack'' to avoid row-to-row shading. False
+            denotes no backtrack capability. True denotes backtrack capability.
+
+            'gcr' : float. A value denoting the ground coverage ratio of a
+            tracker system which utilizes backtracking; i.e. the ratio
+            between the PV array surface area to total ground area. A tracker
+            system with modules 2 meters wide, centered on the tracking axis,
+            with 6 meters between the tracking axes has a gcr of 2/6=0.333.
+            If gcr is not provided, a gcr of 2/7 is default. gcr must be <=1
 
     thermal_model: string or dict
+
         If string, can be
             ‘open_rack_cell_glassback’ (default)
             ‘roof_mount_cell_glassback’
@@ -101,11 +139,22 @@ def simulate_system(weather, info, module_parameters, racking_parameters, therma
     Returns
     -------
 
+    dataframe containing simulation results. Includes the fields present in
+    input 'weather' in addtion to:
+
+        'v_oc': open circuit voltage in Volts
+
+        'aoi': angle of incidence in degrees.
+
+        'temp_cell': cell temeprature in C.
+
+
     """
 
     # Rename the weather data for input to PVLIB.
     if np.all([c in weather.columns for c in ['dni','dhi','ghi','temp_air',
-                                              'wind_speed','year','month','day','hour','minute']]):
+                                              'wind_speed','year','month',
+                                              'day','hour','minute']]):
         # All colmuns are propoerly labeled, skip any relabeling.
         pass
     else:
@@ -125,6 +174,7 @@ def simulate_system(weather, info, module_parameters, racking_parameters, therma
     # Set location
     location = pvlib.location.Location(latitude=info['Latitude'],
                                        longitude=info['Longitude'])
+
 
     # #
     # start_time = time.time()
@@ -226,7 +276,7 @@ def simulate_system(weather, info, module_parameters, racking_parameters, therma
                                    module_parameters)
     df = weather.copy()
     df['aoi'] = aoi
-    df['aoi_loss'] = aoi_loss
+    # df['aoi_loss'] = aoi_loss
     df['temp_cell'] = temps['temp_cell']
     df['v_oc'] = v_oc
 
@@ -255,6 +305,8 @@ def make_voc_summary(df,module_parameters,max_string_voltage=1500):
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,df['temp_air'])
     mean_yearly_min_day_temp = calculate_mean_yearly_min_temp(df.index[df['ghi']>150],
                                               df['temp_air'][df['ghi']>150])
+
+
 
     # Calculate some standard voc values.
     voc_values = {
@@ -325,6 +377,8 @@ def make_simulation_summary(df, info,module_parameters,racking_parameters,
                             thermal_model,max_string_voltage):
     """
 
+    Makes a text summary of the simulation.
+
     Parameters
     ----------
     info
@@ -347,6 +401,9 @@ def make_simulation_summary(df, info,module_parameters,racking_parameters,
     if 'Time Zone' in info:
         info['local_time_zone'] = info['Time Zone']
 
+    extra_parameters = calculate_extra_module_parameters_cec(module_parameters)
+
+
     summary = \
         'Weather data,\n' + \
         pd.Series(info)[
@@ -355,6 +412,8 @@ def make_simulation_summary(df, info,module_parameters,racking_parameters,
              'timedelta_in_years']].to_csv(header=False) +  '\n' + \
         'Module Parameters\n' + \
         pd.Series(module_parameters).to_csv(header=False) + '\n' + \
+        'Simulated Module Parameters\n' + \
+        extra_parameters.to_csv() + '\n' + \
         'Racking Parameters\n' + \
         pd.Series(racking_parameters).to_csv(header=False) +  '\n' + \
         'Thermal model\n' + \
@@ -467,16 +526,7 @@ def calculate_voc(effective_irradiance, temperature, module_parameters):
 
     """
     photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth = \
-        pvlib.pvsystem.calcparams_cec(effective_irradiance,
-                                      temperature,
-                                      module_parameters['alpha_sc'],
-                                      module_parameters['a_ref'],
-                                      module_parameters['I_L_ref'],
-                                      module_parameters['I_o_ref'],
-                                      module_parameters['R_sh_ref'],
-                                      module_parameters['R_s'],
-                                      module_parameters['Adjust'],
-                                      )
+        calcparams_cec(effective_irradiance, temperature, module_parameters)
 
     # out = pvlib.pvsystem.singlediode(photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth,
     #                            method='newton')
@@ -490,6 +540,21 @@ def calculate_voc(effective_irradiance, temperature, module_parameters):
                                                method='newton')
     return v_oc
 
+def calcparams_cec(effective_irradiance, temperature, module_parameters):
+
+    photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth = \
+        pvlib.pvsystem.calcparams_cec(effective_irradiance,
+                                      temperature,
+                                      module_parameters['alpha_sc'],
+                                      module_parameters['a_ref'],
+                                      module_parameters['I_L_ref'],
+                                      module_parameters['I_o_ref'],
+                                      module_parameters['R_sh_ref'],
+                                      module_parameters['R_s'],
+                                      module_parameters['Adjust'],
+                                      )
+    return photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth
+
 def calculate_iv_curve(effective_irradiance, temperature, module_parameters,
                        ivcurve_pnts=200):
     """
@@ -498,8 +563,7 @@ def calculate_iv_curve(effective_irradiance, temperature, module_parameters,
     :param temperature:
     :param module_parameters:
     :param ivcurve_pnts:
-    :return: dict
-        iv curve containing fields 'i' and 'v'.
+    :return:
     """
     photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth = \
         pvlib.pvsystem.calcparams_cec(effective_irradiance,
@@ -517,6 +581,103 @@ def calculate_iv_curve(effective_irradiance, temperature, module_parameters,
                                ivcurve_pnts=ivcurve_pnts, method='lambertw')
 
     return iv_curve
+
+def calculate_extra_module_parameters_cec(module_parameters,reference_irradiance=1000, reference_temperature=25):
+    """
+
+    Calculate standard parameters of modules from the CEC model.
+
+    :param module_parameters: dict
+
+
+    :return param: dict
+         Dict of parameters including:
+
+         'Voco' - open circuit voltage at STC.
+
+         'Bvoco' - temperature coefficient of Voc near STC, in V/C
+
+         Isco - short circuit current at STC
+
+         Bisco - temperature coefficient of Isc near STC, in A/C
+
+         Vmpo - voltage at maximum power point at STC, in V
+
+         Pmpo - power at maximum power point at STC, in W
+
+         Impo - current at maximum power point at STC, in A
+
+         Bpmpo - temperature coefficient of maximum power near STC, in W/C
+
+
+    """
+    # Calculate Voc vs. temperature for finding coefficients
+    temp_cell_smooth = np.linspace(reference_temperature-5,
+                                   reference_temperature+5, 5)
+
+    photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth = \
+        calcparams_cec(effective_irradiance=reference_irradiance,
+                   temperature=temp_cell_smooth,
+                   module_parameters=module_parameters)
+    iv_points = pvlib.pvsystem.singlediode(photocurrent,
+            saturation_current, resistance_series, resistance_shunt, nNsVth)
+
+
+    photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth = \
+        calcparams_cec(
+        effective_irradiance=reference_irradiance,
+        temperature=reference_temperature,
+        module_parameters=module_parameters)
+
+    iv_points_0 = pvlib.pvsystem.singlediode(photocurrent,
+            saturation_current, resistance_series, resistance_shunt, nNsVth)
+
+
+
+
+
+
+    param = {}
+    param['Voco'] = iv_points_0['v_oc']
+    param['Isco'] = iv_points_0['i_sc']
+    param['Impo'] = iv_points_0['i_mp']
+    param['Vmpo'] = iv_points_0['v_mp']
+    param['Pmpo'] = iv_points_0['p_mp']
+    # param['Ixo'] = iv_points_0['i_x']
+    # param['Ixxo'] = iv_points_0['i_xx']
+
+
+    voc_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['v_oc'], 1)
+    param['Bvoco'] = voc_fit_coeff[0]
+
+    pmp_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['p_mp'], 1)
+    param['Bpmpo'] = pmp_fit_coeff[0]
+
+    isc_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['i_sc'], 1)
+    param['Bisco'] = isc_fit_coeff[0]
+
+
+    description = {
+        'Voco':'Open circuit voltage at STC (V)',
+        'Isco':'Short circuit current at STC (A)',
+        'Impo':'Max power current at STC (A)',
+        'Vmpo':'Max power voltage at STC (V)',
+        'Pmpo':'Max power power at STC (W)',
+        'Bvoco':'Temperature coeff. of open circuit voltage near STC (V/C)',
+        'Bpmpo':'Temperature coeff. of max power near STC (W/C)',
+        'Bisco':'Tempearture coeff. of short circuit current near STC (A/C)'
+    }
+
+    extra_parameters = pd.DataFrame(
+                index= list(param.keys()),
+                 columns=['Parameter','Value','Description'])
+
+    extra_parameters['Parameter'] = extra_parameters.index
+    extra_parameters['Value'] = extra_parameters.index.map(param)
+    extra_parameters['Description'] = extra_parameters.index.map(description)
+
+
+    return extra_parameters
 
 def calculate_mean_yearly_min_temp(datetimevec, temperature):
     """
@@ -548,13 +709,20 @@ def calculate_mean_yearly_min_temp(datetimevec, temperature):
 def voc_to_string_length(voc,max_string_voltage):
     """
 
+    Returns the maximum number N modules with open circuit voltage voc that
+    do not exceed max_string_voltage when connected in series.
+
     Parameters
     ----------
-    voc
-    max_string_voltage
+    voc : float
+        Open circuit voltage
+    max_string_voltage : float
+        Maximum string voltage
 
     Returns
     -------
+    N : float
+        Maximum string length
 
     """
     return np.round(np.floor(max_string_voltage/voc))

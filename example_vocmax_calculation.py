@@ -120,21 +120,22 @@ print('\n** Voc Results **')
 print(voc_summary.to_string())
 
 
-# Calculate Voc vs. temperature for finding coeffiencts.
-temp_cell_smooth = np.linspace(-20,100,100)
-voc_smooth =  vocmaxlib.calculate_voc(1000, temp_cell_smooth, module_parameters)
-voc_fit_coeff = np.polyfit(temp_cell_smooth, voc_smooth, 1)
-print(voc_fit_coeff)
+# # Calculate Voc vs. temperature for finding coefficients
+# temp_cell_smooth = np.linspace(-20,100,100)
+# voc_smooth =  vocmaxlib.calculate_voc(1000, temp_cell_smooth, module_parameters)
+# voc_fit_coeff = np.polyfit(temp_cell_smooth, voc_smooth, 1)
+# print(voc_fit_coeff)
+#
+# # Voc as STC
+# voc_o = np.polyval(voc_fit_coeff, 25)
+# B_voco = voc_fit_coeff[0]
 
-# Voc as STC
-voc_o = np.polyval(voc_fit_coeff, 25)
-B_voco = voc_fit_coeff[0]
+module_paramaters_extra = vocmaxlib.calculate_extra_module_parameters_cec(module_parameters)
 
-# Calculat IV curves.
+# Calculate some IV curves.
 irradiance_list = [200,400,600,800,1000]
 iv_curve = []
 for e in irradiance_list:
-
     ret = vocmaxlib.calculate_iv_curve(e, 25, module_parameters)
     ret['effective_irradiance'] = e
     iv_curve.append(ret)
@@ -186,12 +187,12 @@ plt.ylabel("Voc (V)")
 plt.show()
 
 
-# Plot Voc vs. cell temperature.
-plt.figure(2)
-plt.clf()
-plt.plot(temp_cell_smooth,voc_smooth)
-plt.xlabel('Cell Temperature (C)')
-plt.ylabel("Voc (V)")
+# # Plot Voc vs. cell temperature.
+# plt.figure(2)
+# plt.clf()
+# plt.plot(temp_cell_smooth,voc_smooth)
+# plt.xlabel('Cell Temperature (C)')
+# plt.ylabel("Voc (V)")
 
 
 # Plot IV curve
