@@ -1,5 +1,16 @@
 """
-Example max voc calculation using PVLIB. Uses singlediode model.
+
+This script shows an example calculation for calculating the maximum
+string length allowed in a particular location.
+
+The method proceeds in the following steps
+
+- Choose module parameters
+- Choose racking method
+- Set maximum allowable string voltage.
+- Import weather data
+- Run the calculation
+- Plot.
 
 """
 
@@ -16,20 +27,34 @@ import vocmaxlib
 # ------------------------------------------------------------------------------
 # Choose Module Parameters
 # ------------------------------------------------------------------------------
-# If the module is in the CEC database, then can retieve parameters.
+
+# - Option 1. If the module is in the CEC database, then can retieve parameters.
 cec_modules = vocmaxlib.cec_modules
 module_parameters = cec_modules['Panasonic_Group_SANYO_Electric_VBHN330SA16'].to_dict()
-module_parameters['FD'] = 1
 
-# Or can build a dictionary of paramaters manually, see:
-# https://pvlib-python.readthedocs.io/en/latest/generated/pvlib.pvsystem.calcparams_cec.html
+# Fraction of diffuse irradiance used by cell (default=1)
+module_parameters['FD'] = 1
 
 # aoi model determines how much radiation is lost from reflection. aoi_model can
 # be 'ashrae' or 'no_loss'
-
 # module_parameters['aoi_model'] = 'ashrae'
 # module_parameters['ashrae_iam_param'] = 0.05
 module_parameters['aoi_model'] = 'no_loss'
+
+
+# - Option 2. Or can build a dictionary of parameters manually, see
+# vocmaxlib.simulate_system for explanation of parameters.
+module_parameters = {
+    'name': 'Custom module',
+    'alpha_sc': 0.000121,
+    'a_ref': 2.3402,
+    'I_L_ref': 6.08,
+    'I_o_ref': 6.879999999999999e-13,
+    'R_sh_ref': 454.17,
+    'R_s': 0.741,
+    'Adjust': 34.78,
+    'aoi_model': 'no_loss',
+}
 
 print('\n** Module parameters **')
 print(pd.Series(module_parameters))
