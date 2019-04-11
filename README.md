@@ -1,6 +1,8 @@
 # vocmax
 Calculate the maximum sting length for a photovoltaic installation.
 
+
+
 # Files
 - *example_vocmax_calculation.py* - Example script for calculating maximum string length.
 - *vocmaxlib.py* - python module for running calculation.
@@ -11,6 +13,9 @@ Calculate the maximum sting length for a photovoltaic installation.
 
 This package has the following dependencies:
 - pvlib
+- matplotlib
+- pandas
+- numpy
 
 # Todo
 

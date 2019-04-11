@@ -1,3 +1,7 @@
+"""
+Module for importing data from NSRDB.
+
+"""
 
 import numpy as np
 import pandas as pd
@@ -233,7 +237,11 @@ def import_csv(filename):
 
     # filename = '1ad06643cad4eeb947f3de02e9a0d6d7/128364_38.29_-122.14_1998.csv'
 
-    info = pd.read_csv(filename, nrows=1)
+    info_df = pd.read_csv(filename, nrows=1)
+    info = {}
+    for p in list(info_df.columns):
+        info[p] = info_df[p].iloc[0]
+
     # See metadata for specified properties, e.g., timezone and elevation
     # timezone, elevation = info['Local Time Zone'], info['Elevation']
 
@@ -260,7 +268,7 @@ def import_csv(filename):
         print('Interval not understood!')
 
     df.index = df.index.tz_localize(
-        pytz.FixedOffset(float(info['Time Zone'][0] * 60)))
+        pytz.FixedOffset(float(info['Time Zone'] * 60)))
 
     return (df, info)
 
@@ -293,7 +301,6 @@ def import_sequence(folder):
     files.sort()
     df = pd.DataFrame()
     for f in files:
-        print(f)
         (df_temp,info) = import_csv(f)
 
         df = df.append(df_temp)
