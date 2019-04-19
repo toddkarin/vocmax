@@ -30,34 +30,26 @@ import vocmaxlib
 
 # - Option 1. If the module is in the CEC database, then can retieve parameters.
 cec_modules = vocmaxlib.cec_modules
-module_parameters = cec_modules['Panasonic_Group_SANYO_Electric_VBHN330SA16'].to_dict()
+cec_parameters = cec_modules['Panasonic_Group_SANYO_Electric_VBHN330SA16'].to_dict()
 
-# Fraction of diffuse irradiance used by cell (default=1)
-module_parameters['FD'] = 1
-
-# aoi model determines how much radiation is lost from reflection. aoi_model can
-# be 'ashrae' or 'no_loss'
-# module_parameters['aoi_model'] = 'ashrae'
-# module_parameters['ashrae_iam_param'] = 0.05
-module_parameters['aoi_model'] = 'no_loss'
-
+sapm_parameters = vocmaxlib.calculate_sapm_module_parameters(cec_parameters)
+# All the module parameters together:
+module = {**sapm_parameters, **cec_parameters}
 
 # - Option 2. Or can build a dictionary of parameters manually, see
-# vocmaxlib.simulate_system for explanation of parameters.
-module_parameters = {
-    'name': 'Custom module',
-    'alpha_sc': 0.000121,
-    'a_ref': 2.3402,
-    'I_L_ref': 6.08,
-    'I_o_ref': 6.879999999999999e-13,
-    'R_sh_ref': 454.17,
-    'R_s': 0.741,
-    'Adjust': 34.78,
-    'aoi_model': 'no_loss',
-}
+sapm_parameters = {'cells_in_series': 96,
+                   'n_diode': 1.2,
+                   'Voco': 69.7015,
+                   'Bvoco': -0.159,
+                   'Mbvoc': 0,
+                   'FD': 1,
+                   'iv_model': 'sapm',
+                   'aoi_model': 'no_loss'}
+
+
 
 print('\n** Module parameters **')
-print(pd.Series(module_parameters))
+print(pd.Series(module))
 
 # ------------------------------------------------------------------------------
 # Choose Racking Method
@@ -120,18 +112,20 @@ weather = weather.rename(columns={'DNI':'dni','DHI':'dhi','GHI':'ghi',
 print('Running Simulation...')
 df = vocmaxlib.simulate_system(weather,
                                info,
-                               module_parameters,
+                               sapm_parameters,
                                racking_parameters,
                                thermal_model)
 
-voc_summary = vocmaxlib.make_voc_summary(df, module_parameters,
+# voc_singlediode = vocmaxlib.singlediode_voc(df['effective_irradiance'],df['temp_cell'],module)
+
+voc_summary = vocmaxlib.make_voc_summary(df, sapm_parameters,
                                    max_string_voltage=max_string_voltage)
 
 print('Simulation complete.')
 
 # Make a csv file for saving simulation parameters
 summary_text = vocmaxlib.make_simulation_summary(df, info,
-                                                 module_parameters,
+                                                 module,
                                                  racking_parameters,
                                                  thermal_model,
                                                  max_string_voltage)
@@ -155,13 +149,13 @@ print(voc_summary.to_string())
 # voc_o = np.polyval(voc_fit_coeff, 25)
 # B_voco = voc_fit_coeff[0]
 
-module_paramaters_extra = vocmaxlib.calculate_extra_module_parameters_cec(module_parameters)
+# module_paramaters_extra = vocmaxlib.calculate_extra_module_parameters(module_parameters)
 
 # Calculate some IV curves.
 irradiance_list = [200,400,600,800,1000]
 iv_curve = []
 for e in irradiance_list:
-    ret = vocmaxlib.calculate_iv_curve(e, 25, module_parameters)
+    ret = vocmaxlib.calculate_iv_curve(e, 25, cec_parameters)
     ret['effective_irradiance'] = e
     iv_curve.append(ret)
 
