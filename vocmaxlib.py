@@ -22,6 +22,7 @@ cec_modules = pvlib.pvsystem.retrieve_sam('CeCMod')
 
 vocmaxlib_version = '0.1.1'
 
+# Descriptions of hte various parameters used in the calculation.
 explain = {
     'Voco': 'Open circuit voltage at reference conditions, in V',
     'Bvoco': 'Temperature dependence of open circuit voltage, in V/C',
@@ -99,43 +100,29 @@ def simulate_system(weather, info, module_parameters,
         Dictionary containing location information with fields:
             'Latitude': latitude in degrees
             'Longitude': longitude in degrees.
+        Other fields may be included in info as well.
 
     module_parameters : dict
         Dict or Series containing the fields diescribing the module
 
-            'alpha_sc': The short-circuit current temperature coefficient of the
-            module in units of A/C.
+            'Voco' :
 
-            'a_ref': The product of the usual diode ideality factor (n,
-            unitless), number of cells in series (Ns), and cell thermal voltage
-            at reference conditions, in units of V
+            'Bvoco' :
 
-            'I_L_ref': The light-generated current (or photocurrent) at reference
-            conditions, in amperes.
+            'cells_in_series'
 
-            'I_o_ref': The dark or diode reverse saturation current at reference
-            conditions, in amperes.
+            'n_diode'
 
-            'R_sh_ref': The shunt resistance at reference conditions, in ohms.
+            'Mbvoc'
 
-            'R_s': The series resistance at reference conditions, in ohms.
+            'FD'
 
-            'Adjust': The adjustment to the temperature coefficient for short
-            circuit current, in percent. This parameter is only used if model
-            is 'cec'.
+            'iv_model'
 
-            'aoi_model': (optional). Model for angle of incidence losses (
-            reflection losses), can be 'ashrae' or 'no_loss'. default is
-            'no_loss'.
-
-            'ashrae_iam_param': (optional). If aoi_model is 'ashrae', specify
-            the ashrae coefficient. Typical value is 0.05.
-
-            'model' : str
-                Method to use for calculation, can be 'cec' or 'desoto'
+            'aoi_model' -
 
     racking_parameters : dict
-        dictionary describing the racking setup. Contains fields
+        dictionary describing the racking setup. Contains fields:
 
             'racking_type' : str. Can be 'fixed_tilt' for a stationary PV system
             or 'single_axis' for a single axis tracker.
@@ -238,6 +225,9 @@ def simulate_system(weather, info, module_parameters,
     location = pvlib.location.Location(latitude=info['Latitude'],
                                        longitude=info['Longitude'])
 
+
+    # Add module parameters if some aren't specified.
+    module_parameters = add_default_module_params(module_parameters)
 
     # #
     # start_time = time.time()
@@ -349,6 +339,47 @@ def simulate_system(weather, info, module_parameters,
 
 
 
+def add_default_module_params(module_parameters):
+    """
+
+    Adds default fields to the module_parameters dictionary.
+
+    Parameters
+    ----------
+    module_parameters : dict
+
+
+    Returns
+    -------
+    module_parameters : dict
+        Same as input, except default values are added for the following fields:
+
+        'Mbvoc' : 0
+
+        'FD' : 1
+
+        'iv_model' : 'sapm'
+
+        'aoi_model' : 'no_loss'
+
+
+
+    """
+
+
+    if not 'Mbvoc' in module_parameters:
+        module_parameters['Mbvoc'] = 0
+
+    if not 'FD' in module_parameters:
+        module_parameters['FD'] = 1
+
+    if not 'iv_model' in module_parameters:
+        module_parameters['iv_model'] = 'sapm'
+
+    if not 'aoi_model' in module_parameters:
+        module_parameters['aoi_model'] = 'no_loss'
+
+    return module_parameters
 
 
 def make_voc_summary(df,module_parameters,max_string_voltage=1500):

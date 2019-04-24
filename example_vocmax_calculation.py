@@ -36,17 +36,12 @@ sapm_parameters = vocmaxlib.calculate_sapm_module_parameters(cec_parameters)
 # All the module parameters together:
 module = {**sapm_parameters, **cec_parameters}
 
-# - Option 2. Or can build a dictionary of parameters manually, see
+# - Option 2. Or can build a dictionary of parameters manually:
 sapm_parameters = {'cells_in_series': 96,
                    'n_diode': 1.2,
                    'Voco': 69.7015,
                    'Bvoco': -0.159,
-                   'Mbvoc': 0,
-                   'FD': 1,
-                   'iv_model': 'sapm',
-                   'aoi_model': 'no_loss'}
-
-
+                   'FD': 1}
 
 print('\n** Module parameters **')
 print(pd.Series(module))
@@ -93,8 +88,8 @@ max_string_voltage = 1500
 # Import weather data
 # ------------------------------------------------------------------------------
 
-# Get the weather data. Weather is loaded from NSRDB files placed in a
-# directory.
+# Get the weather data. Weather is loaded from NSRDB files placed in the
+# directory 'weather_data_directory'.
 print("\nImporting weather data...")
 weather_data_directory = 'NSRDB_sample'
 weather, info = nsrdbtools.import_sequence(weather_data_directory)
