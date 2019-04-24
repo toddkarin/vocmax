@@ -99,8 +99,13 @@ def simulate_system(weather, info, module_parameters,
     info : dict
         Dictionary containing location information with fields:
             'Latitude': latitude in degrees
+
             'Longitude': longitude in degrees.
+
+            'albedo' : (optional) albedo of ground. default 0.25
+
         Other fields may be included in info as well.
+
 
     module_parameters : dict
         Dict or Series containing the fields diescribing the module
@@ -226,6 +231,11 @@ def simulate_system(weather, info, module_parameters,
                                        longitude=info['Longitude'])
 
 
+    if not 'albedo' in info:
+        info['albedo'] = 0.25
+
+
+
     # Add module parameters if some aren't specified.
     module_parameters = add_default_module_params(module_parameters)
 
@@ -281,7 +291,8 @@ def simulate_system(weather, info, module_parameters,
         weather['ghi'],
         weather['dhi'],
         model='haydavies',
-        dni_extra=dni_extra)
+        dni_extra = dni_extra,
+        albedo= info['albedo'])
 
     if racking_parameters['racking_type'] == 'fixed_tilt':
         aoi = pvlib.irradiance.aoi(surface_tilt, surface_azimuth,

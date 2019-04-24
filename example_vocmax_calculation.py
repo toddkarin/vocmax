@@ -63,11 +63,11 @@ racking_parameters = {
 
 # Example racking parameters for fixed tilt (only use one racking_parameters,
 # comment the other one out!)
-racking_parameters = {
-    'racking_type': 'fixed_tilt',
-    'surface_tilt': 30,
-    'surface_azimuth': 180
-}
+# racking_parameters = {
+#     'racking_type': 'fixed_tilt',
+#     'surface_tilt': 30,
+#     'surface_azimuth': 180
+# }
 
 # Sandia thermal model can be a string for using default coefficients or the
 # parameters can be set manually.
@@ -93,6 +93,7 @@ max_string_voltage = 1500
 print("\nImporting weather data...")
 weather_data_directory = 'NSRDB_sample'
 weather, info = nsrdbtools.import_sequence(weather_data_directory)
+info['albedo'] = 1
 
 # Make sure that the weather data has the correct fields for pvlib.
 weather = weather.rename(columns={'DNI':'dni','DHI':'dhi','GHI':'ghi',
