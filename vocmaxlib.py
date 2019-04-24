@@ -325,8 +325,7 @@ def simulate_system(weather, info, module_parameters,
         aoi_loss = 1
     elif module_parameters['aoi_model'] == 'ashrae':
         aoi_loss = pvlib.pvsystem.ashraeiam(aoi,
-                                            b=module_parameters[
-                                                'ashrae_iam_param'])
+                            b=module_parameters['ashrae_iam_param'])
     else:
         raise Exception('aoi_model must be ashrae or no_loss')
 
