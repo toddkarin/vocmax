@@ -155,7 +155,6 @@ for e in irradiance_list:
     ret['effective_irradiance'] = e
     iv_curve.append(ret)
 
-
 # ------------------------------------------------------------------------------
 # Plot results
 # ------------------------------------------------------------------------------
@@ -181,11 +180,9 @@ plt.show()
 # Plot Voc histogram
 plt.figure(1,figsize=(fig_width,fig_height))
 plt.clf()
-y,c = np.histogram(df['v_oc'],
-                 bins=np.linspace(df['v_oc'].max()*0,df['v_oc'].max()*1.2,600))
+voc_hist_x, voc_hist_y = vocmaxlib.make_voc_histogram(df,info)
 
-y_scale = y/info['timedelta_in_years']*info['interval_in_hours']
-plt.plot(c[2:],y_scale[1:])
+plt.plot(voc_hist_x, voc_hist_y)
 plt.xlabel('Voc (Volts)')
 plt.ylabel('hrs/year')
 

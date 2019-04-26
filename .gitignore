@@ -1,5 +1,11 @@
 figures
 out.csv
+venv
+.idea
+*.pyc
+.env
+test*
+*.npz
 .idea
 
 # Mac
