@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="vocmax",
-    version="0.0.5",
+    version="0.0.6",
     author="toddkarin",
     author_email="pvtools.lbl@gmail.com",
     description="Calculate the maximum module open circuit voltage to find the maximum solar PV string length",
