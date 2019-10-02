@@ -24,7 +24,7 @@ cec_modules = pvlib.pvsystem.retrieve_sam('CeCMod')
 
 vocmaxlib_version = '0.1.1'
 
-# Descriptions of hte various parameters used in the calculation.
+# Descriptions of the various parameters used in the calculation.
 explain = {
     'Voco': 'Open circuit voltage at reference conditions, in V',
     'Bvoco': 'Temperature dependence of open circuit voltage, in V/C',
