@@ -547,10 +547,67 @@ def build_weather_info(info):
 
     return weather, info
 
+
+
 def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate Haversine distance in km between two locations.
+
+    Parameters
+    ----------
+    lat1 : numeric
+        latitude of first point, in degrees.
+    lon1 : numeric
+        longitude of first point, in degrees.
+    lat2 : numeric
+        latitude of second point, in degrees.
+    lon2 : numeric
+        longitude of second point, in degrees.
+
+    Returns
+    -------
+    numeric: Haversine distance in km.
+
+    """
     p = 0.017453292519943295
     a = 0.5 - np.cos((lat2-lat1)*p)/2 + np.cos(lat1*p)*np.cos(lat2*p) * (1-np.cos((lon2-lon1)*p)) / 2
     return 12742 * np.arcsin(np.sqrt(a))
+
+def arg_closest_point(lat_point, lon_point, lat_list, lon_list):
+    """
+    Calculate the index of the closest point in the list of coordinates (
+    lat_list, lon_list) to the point (lat_point, lon_point). Uses Haversine
+    distance formula to calculate the distance.
+
+    Parameters
+    ----------
+    lat_point : numeric
+        latitude of point to search for, in degrees
+    lon_point : numeric
+        longitude of point to search for, in degrees.
+    lat_list : array
+        list of latitudes to search within, in degrees.
+    lon_list : array
+        list of longitudes to search within, in degrees. Must be the same size
+        as lat_list
+
+    Returns
+    -------
+        numeric : distance
+    """
+    return np.argmin(
+        haversine_distance(np.array(lat_list), np.array(lon_list),
+                           lat_point, lon_point))
+
+
+
+
+#
+#
+# def haversine_distance(lat1, lon1, lat2, lon2):
+#     p = 0.017453292519943295
+#     a = 0.5 - np.cos((lat2-lat1)*p)/2 + np.cos(lat1*p)*np.cos(lat2*p) * (1-np.cos((lon2-lon1)*p)) / 2
+#     return 12742 * np.arcsin(np.sqrt(a))
 
 def closest_degrees(lat_find, lon_find, lat_list, lon_list):
 
@@ -559,12 +616,6 @@ def closest_degrees(lat_find, lon_find, lat_list, lon_list):
     distance_in_degrees = distance[closest_index]
 
     return (closest_index, distance_in_degrees)
-
-def arg_closest_point(lat_point, lon_point, lat_list, lon_list):
-
-    return np.argmin(
-        haversine_distance(np.array(lat_list), np.array(lon_list),
-                           lat_point, lon_point))
 
 
 
