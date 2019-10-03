@@ -804,7 +804,7 @@ def simulate_system(weather, info, module_parameters,
 
 
         if racking_parameters['bifacial_model']=='proportional':
-            print('Simple bifacial model')
+
 
             effective_irradiance_front = calculate_effective_irradiance(
                 total_irrad['poa_direct'],
@@ -826,7 +826,7 @@ def simulate_system(weather, info, module_parameters,
 
 
         elif racking_parameters['bifacial_model'] =='pvfactors':
-            print('pvfactors bifacial model')
+
             effective_irradiance_front, effective_irradiance_back = pvlib.bifacial.pvfactors_timeseries(
                 solar_position['azimuth'], solar_position['zenith'], surface_azimuth,
                 surface_tilt,
@@ -1673,6 +1673,9 @@ def calcparams_singlediode(effective_irradiance, temperature,
                            module_parameters):
     # Default to desoto model.
     if not 'iv_model' in module_parameters.keys():
+        module_parameters['iv_model'] = 'desoto'
+
+    if module_parameters['iv_model']=='sapm':
         module_parameters['iv_model'] = 'desoto'
 
     if module_parameters['iv_model'] == 'desoto':
