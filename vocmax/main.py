@@ -160,14 +160,11 @@ def get_weather_data(lat,lon,
         Location to stored cached data files. Default is the subdirectory
         'cached_weather_data' inside the current working directory.
 
-
     attributes : str
-
         comma separated list of attributes to download. Default is 'ghi,dhi,
         dni,wind_speed,air_temperature'
 
     force_download : bool
-
         If truem, force downloading of weather data regardless of weather
         that particular location has already been downloaded. Default is false.
 
@@ -333,7 +330,7 @@ def get_weather_data(lat,lon,
 
     info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
 
-    # Convert to
+    # Convert to int for lowering file size.
     dni = np.array(df['DNI'].astype(np.int16))
     dhi = np.array(df['DHI'].astype(np.int16))
     ghi = np.array(df['GHI'].astype(np.int16))
@@ -419,9 +416,19 @@ def get_nsrdb_temperature_error(lat,lon,
     lon : float
         longitude of search point in fractional degrees
 
+    number_of_closest_points : int
+        The number of closest datapoints to find. Default is 5.
+
     Returns
     -------
-    max temperature difference
+    temperature_difference : float
+        max temperature difference between NSRDB point and closest ASHRAE
+        points. A positive number means that the NSRDB design temperature is
+        higher than the ASHRAE design temperature. If a positive temperature
+        difference is found, then an additional safety factor is suggested to
+        account for this error in the NSRDB dataset.
+
+
     """
 
 
@@ -501,9 +508,14 @@ def simulate_system(weather, info, module_parameters,
 
         'iv_model' : string
             Model for calculating Voc. Can be 'sapm', 'cec' or 'desoto'.
+            TODO: Describe better.
 
         'aoi_model' : string
-            Model for calculating the angle-of-incidence loss function. TODO: specify
+            Model for calculating the angle-of-incidence loss function. Can
+            be 'no_loss' or 'ashrae'. The 'no_loss' method assumes that no
+            extra reflection losses are accrued at non-normal angles of
+            incidence. The 'ashrae' option uses the model in
+            pvlib.pvsystem.ashraeiam
 
         'is_bifacial' : bool
             True if module is bifacial. Using False will force the use of
@@ -517,20 +529,23 @@ def simulate_system(weather, info, module_parameters,
     racking_parameters : dict
         dictionary describing the racking setup. Contains fields:
 
-        'racking_type' : str. Can be 'fixed_tilt' for a stationary PV system
-        or 'single_axis' for a single axis tracker.
+        'racking_type' : str
+            Can be 'fixed_tilt' for a stationary PV system or 'single_axis'
+            for a single axis tracker.
 
-        'surface_tilt' : float. If racking_type is 'fixed_tilt', specify the
-        surface tilt in degrees from horizontal.
+        'surface_tilt' : float
+            If racking_type is 'fixed_tilt', specify the surface tilt in
+            degrees from horizontal.
 
-        'surface_azimuth' : float. If racking type is 'surface_azimuth', specify
-        the racking azimuth in degrees. A value of 180 degrees has the
-        module face oriented due South.
+        'surface_azimuth' : float
+            If racking type is 'surface_azimuth', specify the racking azimuth
+            in degrees. A value of 180 degrees has the module face oriented
+            due South.
 
-        'axis_tilt' : float. If racking_type is 'single_axis', specify the the
-        tilt of the axis of rotation (i.e, the y-axis defined by
-        axis_azimuth) with respect to horizontal, in decimal degrees.
-        Standard value is 0.
+        'axis_tilt' : float
+            If racking_type is 'single_axis', specify the the tilt of the
+            axis of rotation (i.e, the y-axis defined by axis_azimuth) with
+            respect to horizontal, in decimal degrees. Standard value is 0.
 
         'axis_azimuth' : float
             If racking_type is 'single_axis', specify a value denoting the
@@ -546,13 +561,12 @@ def simulate_system(weather, info, module_parameters,
             capability. True denotes backtrack capability.
 
         'gcr' : float
-            A value denoting the ground coverage ratio of a tracker
-            system which utilizes backtracking; i.e. the ratio between
-            the PV array surface area to total ground area. A tracker
-            system with modules 2 meters wide, centered on the tracking
-            axis, with 6 meters between the tracking axes has a gcr of
-            2/6=0.333. If gcr is not provided, a gcr of 2/7 is default.
-            gcr must be <=1
+            A value denoting the ground coverage ratio of a tracker system
+            which utilizes backtracking; i.e. the ratio between the PV array
+            surface area to total ground area. A tracker system with modules
+            2 meters wide, centered on the tracking axis, with 6 meters
+            between the tracking axes has a gcr of 2/6=0.333. If gcr is not
+            provided, a gcr of 2/7 is default. gcr must be <=1
 
         bifacial_model : string
 
@@ -1133,6 +1147,7 @@ def simulate_system(weather, info, module_parameters,
 #         return report
 #
 
+
 def add_default_module_params(module_parameters):
     """
 
@@ -1142,6 +1157,10 @@ def add_default_module_params(module_parameters):
     ----------
     module_parameters : dict
 
+    Examples
+    --------
+
+    >> module = add_default_module_params(module)
 
     Returns
     -------
@@ -1180,15 +1199,26 @@ def make_voc_summary(df, module_parameters,
                      safety_factor=0.023):
     """
 
+    Calculate maximum Voc expected using four relevant standards. See
+    documentation for a description of the standards.
+
     Parameters
     ----------
-    df
-    module_parameters
-    max_string_voltage
+    df : dataframe
+        Dataframe containing fields 'v_oc', 'ghi', 'temp_air'
+
+    module_parameters : dict
+        Dictionary containing module parameters. The module paramaters are
+        used in a direct call to the function calculate_voc.
+
+    max_string_voltage : float
+        Maximum allowable string voltage for the design, in V. Typically 600
+        V, 1200 V or 1500 V
 
     safety_factor : float
-        safety factor for calculating string length as a fraction
-        of max Voc. Standard values are 0.023
+        safety factor for calculating string length as a fraction of max Voc.
+        An example value wuold be 0.023, corresponding to a safety factor of
+        2.3%.
 
     Returns
     -------
