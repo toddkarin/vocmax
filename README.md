@@ -1,15 +1,14 @@
 # vocmax
-
-This python package calculates the maximum sting size for a photovoltaic installation. The method is consistent with the NEC 2017 690.7 standard.  
+Calculate the maximum sting size for a photovoltaic installation. The method is consistent with the NEC 2017 690.7 standard.  
 
 # Summary
 One key design decision for photovoltaic (PV) power plants is to select the string size, the number of PV modules connected in series. Longer strings tend to lower total system costs, but the string size must still meet relevant electrical standards to ensure that the maximum system voltage remains less than the design voltage. Conventional methods calculate string size using the temperature coefficient of open-circuit voltage (Voc) assuming that the coldest-expected temperature occurs simultaneously with a full-sun irradiance of 1000 W/m^2. Here, we demonstrate that this traditional method is unnecessarily conservative, resulting in a string size that is ~10% shorter than necessary to maintain system voltage within limits. Instead, we suggest to calculate string size by modeling Voc over time using historical weather data, a method in compliance with the 2017 National Electric Code. We demonstrate that this site-specific modeling procedure is in close agreement with data from field measurements. Furthermore, we perform a comprehensive sensitivity and uncertainty analysis to identify an appropriate safety factor for this method. By using site-specific modeling instead of conventional methods, the levelized cost of electricity is reduced by up to ~1.2%, an impressive improvement attainable just by reorganizing strings. The method is provided as an easy-to-use [web tool](https://pvtools.lbl.gov/string-length-calculator) and an open-source Python package (vocmax) for the PV community. 
 
 # Files
 - **example_vocmax_calculation.py** - Script for calculating maximum string length. Start here!
-- **main.py** - vocmax main functions.
-- **NSRDB_sample/** - an example set of NSRDB data files for running sample calculation. You may want to download your own for the location of interest.
-
+- **vocmax/main.py** - vocmax main functions.
+- **vocmax/NSRDB_sample/** - an example set of NSRDB data files for running sample calculation. You may want to download your own for the location of interest.
+- **vocmax05_compress_database.py** - Script used to compress NSRDB csv files into a python pickle.
 
 
 # Install
@@ -19,7 +18,7 @@ The vocmax library can be installed with pip:
 pip install vocmax
 ```
 
-This package depends on the following packages.
+This package depends on the following packages:
 - pvlib
 - pandas
 - numpy
@@ -31,7 +30,7 @@ This package depends on the following packages.
 
 ## Full Example String Size calculation
 
-The following code runs the standard string size calculation. This file is saved in the repository as 'example_vocmax_calculation.py'.
+The following code runs a standard string size calculation. This file is saved in the repository as 'example_vocmax_calculation.py'.
 
 
 ```python
@@ -270,6 +269,3 @@ safety_factor = temperature_error*temperature_coefficient_of_voc
 
 print('Safety Factor for weather data: {:.2%}'.format(safety_factor))
 ```
-
-# Todo
-

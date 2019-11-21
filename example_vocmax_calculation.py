@@ -25,17 +25,18 @@ import vocmax
 # Choose Module Parameters
 # ------------------------------------------------------------------------------
 
-# Option 1. If the module is in the CEC database, then can retieve parameters.
+# Option 1. If the module is in the CEC database, then can retreive parameters.
+"""
 cec_modules = vocmax.cec_modules
 cec_parameters = cec_modules['Jinko_Solar_JKM175M_72'].to_dict()
 sapm_parameters = vocmax.calculate_sapm_module_parameters(cec_parameters)
 # Calculate extra module parameters for your information:
 module = {**sapm_parameters, **cec_parameters}
+"""
 
 # Option 2. Or can build a dictionary of parameters manually. Note that in order
 # to calculate MPP, it is necessary to include the CEC parameters: alpha_sc,
 # a_ref, I_L_ref, I_o_ref, R_sh_ref, R_s, and Adjust.
-"""
 module = {
     # Number of cells in series in each module.
     'cells_in_series': 60,
@@ -56,8 +57,9 @@ module = {
     # Ratio of backside to frontside efficiency for bifacial modules. Only used if 'is_bifacial'==True
     'bifaciality_factor': 0.7,
     }
-"""
 
+
+is_cec_module = 'a_ref' in module
 print('\n** Module parameters **')
 print(pd.Series(module))
 
@@ -147,10 +149,11 @@ df = vocmax.simulate_system(weather,
                                racking_parameters,
                                thermal_model)
 
-# Calculate max power voltage
-_, df['v_mp'], _ = vocmax.sapm_mpp(df['effective_irradiance'],
-                      df['temp_cell'],
-                      module)
+# Calculate max power voltage, only possible if using CEC database for module parameters.
+if is_cec_module:
+    _, df['v_mp'], _ = vocmax.sapm_mpp(df['effective_irradiance'],
+                          df['temp_cell'],
+                          module)
 
 # ------------------------------------------------------------------------------
 # Calculate String Size
@@ -190,13 +193,14 @@ with open(summary_file,'w') as f:
 print('\n** Voc Results **')
 print(voc_summary.to_string())
 
-# Calculate some IV curves.
-irradiance_list = [200,400,600,800,1000]
-iv_curve = []
-for e in irradiance_list:
-    ret = vocmax.calculate_iv_curve(e, 25, cec_parameters)
-    ret['effective_irradiance'] = e
-    iv_curve.append(ret)
+# Calculate some IV curves if we are using CEC database.
+if is_cec_module:
+    irradiance_list = [200,400,600,800,1000]
+    iv_curve = []
+    for e in irradiance_list:
+        ret = vocmax.calculate_iv_curve(e, 25, cec_parameters)
+        ret['effective_irradiance'] = e
+        iv_curve.append(ret)
 
 
 # ------------------------------------------------------------------------------
@@ -251,76 +255,78 @@ plt.show()
 
 
 # Plot IV curve
-plt.figure(3)
-plt.clf()
-for j in range(len(iv_curve)):
-    plt.plot(iv_curve[j]['v'], iv_curve[j]['i'])
+if is_cec_module:
+    plt.figure(3)
+    plt.clf()
+    for j in range(len(iv_curve)):
+        plt.plot(iv_curve[j]['v'], iv_curve[j]['i'])
 
-plt.xlabel('Voltage (V)')
-plt.ylabel('Current (A)')
-plt.grid()
+    plt.xlabel('Voltage (V)')
+    plt.ylabel('Current (A)')
+    plt.grid()
 
-# Oerating voltage vs. time.
-plt.figure(4,figsize=(7.5,3.5))
-plt.clf()
+if is_cec_module:
+    # Oerating voltage vs. time.
+    plt.figure(4,figsize=(7.5,3.5))
+    plt.clf()
 
-voltage_bins = np.linspace(60,110,400)
-dV = voltage_bins[1] - voltage_bins[0]
-voc_hist_y_raw, voc_hist_x_raw = np.histogram(df['v_oc']/module['Voco']*100,
-                                              bins=voltage_bins)
+    voltage_bins = np.linspace(60,110,400)
+    dV = voltage_bins[1] - voltage_bins[0]
+    voc_hist_y_raw, voc_hist_x_raw = np.histogram(df['v_oc']/module['Voco']*100,
+                                                  bins=voltage_bins)
 
-voc_hist_y = vocmax.scale_to_hours_per_year(voc_hist_y_raw, info)[1:]
-voc_hist_x = voc_hist_x_raw[1:-1]
+    voc_hist_y = vocmax.scale_to_hours_per_year(voc_hist_y_raw, info)[1:]
+    voc_hist_x = voc_hist_x_raw[1:-1]
 
-vmp_hist_y_raw, vmp_hist_x_raw = np.histogram(df['v_mp']/module['Voco']*100,
-                                              bins=voltage_bins)
+    vmp_hist_y_raw, vmp_hist_x_raw = np.histogram(df['v_mp']/module['Voco']*100,
+                                                  bins=voltage_bins)
 
-vmp_hist_y = vocmax.scale_to_hours_per_year(vmp_hist_y_raw, info)[1:]
-vmp_hist_x = vmp_hist_x_raw[1:-1]
-
-
-# plt.plot(voc_hist_x, voc_hist_y)
-plt.plot(voltage_bins,0*voltage_bins,
-         color=[0.5,0.5,0.5])
-plt.plot(vmp_hist_x, (0.99*vmp_hist_y + 0.01*voc_hist_y))
-# plt.yscale('log')
-
-plt.xlabel('Operating voltage/Voco (%)',fontsize=9)
-plt.ylabel('hours/year',fontsize=9)
-plt.xticks(fontsize=9)
-plt.yticks(fontsize=9)
+    vmp_hist_y = vocmax.scale_to_hours_per_year(vmp_hist_y_raw, info)[1:]
+    vmp_hist_x = vmp_hist_x_raw[1:-1]
 
 
-voc_summary.loc['P99.5 + safety factor',:] = voc_summary.loc['P99.5',:]
-voc_summary.loc['P99.5 + safety factor','v_oc'] = voc_summary.loc['P99.5 + safety factor','v_oc']*1.03
+    # plt.plot(voc_hist_x, voc_hist_y)
+    plt.plot(voltage_bins,0*voltage_bins,
+             color=[0.5,0.5,0.5])
+    plt.plot(vmp_hist_x, (0.99*vmp_hist_y + 0.01*voc_hist_y))
+    # plt.yscale('log')
 
-voc_summary.loc['P99.5','color'] = 'C1'
-voc_summary.loc['P99.5 + safety factor','color'] = 'C1'
-voc_summary.loc['Trad','color'] = 'C3'
-voc_summary.loc['Hist','color'] = 'C2'
-voc_summary.loc['Day','color'] = 'C4'
+    plt.xlabel('Operating voltage/Voco (%)',fontsize=9)
+    plt.ylabel('hours/year',fontsize=9)
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
 
 
-n = 1
-for j in voc_summary.index:
-    if j in ['P99.5', 'P99.5 + safety factor']:
-        line_y = [1,10]
-        text_y = 13
-    else:
-        line_y = [1, 5]
-        text_y = 8
-    plt.plot(voc_summary['v_oc'][j]/module['V_oc_ref']*100 * np.array([1,1]), line_y,
-             label=voc_summary['Conditions'][j],
-             color= voc_summary.loc[j,'color'])
-    plt.text(voc_summary['v_oc'][j]/module['V_oc_ref']*100,text_y, j,
-             rotation=90,
-             verticalalignment='bottom',
-             horizontalalignment='center',
-             color=voc_summary.loc[j,'color'],
-             fontsize=9)
-    n=n+1
+    voc_summary.loc['P99.5 + safety factor',:] = voc_summary.loc['P99.5',:]
+    voc_summary.loc['P99.5 + safety factor','v_oc'] = voc_summary.loc['P99.5 + safety factor','v_oc']*1.03
 
-plt.show()
+    voc_summary.loc['P99.5','color'] = 'C1'
+    voc_summary.loc['P99.5 + safety factor','color'] = 'C1'
+    voc_summary.loc['Trad','color'] = 'C3'
+    voc_summary.loc['Hist','color'] = 'C2'
+    voc_summary.loc['Day','color'] = 'C4'
+
+
+    n = 1
+    for j in voc_summary.index:
+        if j in ['P99.5', 'P99.5 + safety factor']:
+            line_y = [1,10]
+            text_y = 13
+        else:
+            line_y = [1, 5]
+            text_y = 8
+        plt.plot(voc_summary['v_oc'][j]/module['V_oc_ref']*100 * np.array([1,1]), line_y,
+                 label=voc_summary['Conditions'][j],
+                 color= voc_summary.loc[j,'color'])
+        plt.text(voc_summary['v_oc'][j]/module['V_oc_ref']*100,text_y, j,
+                 rotation=90,
+                 verticalalignment='bottom',
+                 horizontalalignment='center',
+                 color=voc_summary.loc[j,'color'],
+                 fontsize=9)
+        n=n+1
+
+    plt.show()
 
 
 # Scatter plot of Temperature/Irradiance where Voc is highest.
