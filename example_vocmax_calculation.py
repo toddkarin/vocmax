@@ -20,6 +20,7 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import vocmax
+import time
 
 # ------------------------------------------------------------------------------
 # Choose Module Parameters
@@ -32,8 +33,11 @@ cec_parameters = cec_modules['Jinko_Solar_JKM175M_72'].to_dict()
 sapm_parameters = vocmax.calculate_sapm_module_parameters(cec_parameters)
 # Calculate extra module parameters for your information:
 module = {**sapm_parameters, **cec_parameters}
+module['aoi_model'] = 'ashrae'
+module['ashrae_iam_param'] = 0.05
+module['is_bifacial'] = False
+module['efficiency'] = 0.18
 """
-
 # Option 2. Or can build a dictionary of parameters manually. Note that in order
 # to calculate MPP, it is necessary to include the CEC parameters: alpha_sc,
 # a_ref, I_L_ref, I_o_ref, R_sh_ref, R_s, and Adjust.
@@ -48,6 +52,8 @@ module = {
     'Isco': 8.09,
     # Short circuit current temperature coefficient, in Amp/C
     'alpha_sc': 0.0036,
+    # Module efficiency, unitless
+    'efficiency': 0.15,
     # Diode Ideality Factor, unitless
     'n_diode': 1.2,
     # Fracion of diffuse irradiance used by the module.
@@ -56,6 +62,10 @@ module = {
     'is_bifacial': True,
     # Ratio of backside to frontside efficiency for bifacial modules. Only used if 'is_bifacial'==True
     'bifaciality_factor': 0.7,
+    # AOI loss model
+    'aoi_model':'ashrae',
+    # AOI loss model parameter.
+    'ashrae_iam_param': 0.05
     }
 
 
@@ -67,18 +77,34 @@ print(pd.Series(module))
 # Choose Racking Method
 # ------------------------------------------------------------------------------
 
-# Example racking parameters for single axis tracking.
+# Racking parameters for single axis tracking (fixed tilt parameters are below).
 racking_parameters = {
+    # Racking type, can be 'single_axis' or 'fixed_tilt'
     'racking_type': 'single_axis',
+    # The tilt of the axis of rotation with respect to horizontal, in degrees
     'axis_tilt': 0,
+    # Compass direction along which the axis of rotation lies. Measured in
+    # degrees East of North
     'axis_azimuth': 0,
+    # Maximum rotation angle of the one-axis tracker from its horizontal
+    # position, in degrees.
     'max_angle': 90,
+    # Controls whether the tracker has the capability to “backtrack” to avoid
+    # row-to-row shading. False denotes no backtrack capability. True denotes
+    # backtrack capability.
     'backtrack': True,
+    # A value denoting the ground coverage ratio of a tracker system which
+    # utilizes backtracking; i.e. the ratio between the PV array surface area
+    # to total ground area.
     'gcr': 2.0 / 7.0,
+    # Bifacial model can be 'proportional' or 'pvfactors'
     'bifacial_model': 'proportional',
+    # Proportionality factor determining the backside irradiance as a fraction
+    # of the frontside irradiance. Only used if 'bifacial_model' is
+    # 'proportional'.
     'backside_irradiance_fraction': 0.2,
+    # Ground albedo
     'albedo': 0.25
-
 }
 
 # Example racking parameters for fixed tilt (only use one racking_parameters,
@@ -86,17 +112,85 @@ racking_parameters = {
 """
 racking_parameters = {
     'racking_type': 'fixed_tilt',
+    # Tilt of modules from horizontal.
     'surface_tilt': 30,
-    'surface_azimuth': 180
+    # 180 degrees orients the modules towards the South.
+    'surface_azimuth': 180,
+    # Ground albedo
+    'albedo':0.25
+}
+"""
+
+# Additionally, here is an example set of racking parameters for full bifacial
+# modeling. Make sure 'is_bifacial' is True in the module parameters. Full
+# bifacial modeling takes about 10 minutes depending on the exact configuration.
+# See documentation for pvfactors for additional description of parameters.
+"""
+racking_parameters = {
+    # Racking type, can be 'single_axis' or 'fixed_tilt'
+    'racking_type': 'single_axis',
+    # The tilt of the axis of rotation with respect to horizontal, in degrees
+    'axis_tilt': 0,
+    # Compass direction along which the axis of rotation lies. Measured in
+    # degrees East of North
+    'axis_azimuth': 0,
+    # Maximum rotation angle of the one-axis tracker from its horizontal
+    # position, in degrees.
+    'max_angle': 90,
+    # Controls whether the tracker has the capability to “backtrack” to avoid
+    # row-to-row shading. False denotes no backtrack capability. True denotes
+    # backtrack capability.
+    'backtrack': True,
+    # A value denoting the ground coverage ratio of a tracker system which
+    # utilizes backtracking; i.e. the ratio between the PV array surface area
+    # to total ground area.
+    'gcr': 2.0 / 7.0,
+    # Ground albedo
+    'albedo':0.25,
+    # bifacial model can be 'pfvactors' or 'simple'
+    'bifacial_model': 'pvfactors',
+    # number of pv rows
+    'n_pvrows': 3,
+    # Index of row to use backside irradiance for
+    'index_observed_pvrow': 1,
+    # height of pvrows (measured at center / torque tube)
+    'pvrow_height': 1,
+    # width of pvrows
+    'pvrow_width': 1,
+    # azimuth angle of rotation axis
+    'axis_azimuth': 0.,
+    # pv row front surface reflectivity
+    'rho_front_pvrow': 0.01,
+    # pv row back surface reflectivity
+    'rho_back_pvrow': 0.03,
+    # Horizon band angle.
+    'horizon_band_angle': 15,
+    'run_parallel_calculations': True,
+    'n_workers_for_parallel_calcs': -1,
 }
 """
 
 # Sandia thermal model can be a string for using default coefficients or the
-# parameters can be set manually.
-thermal_model = 'open_rack_cell_glassback'
+# parameters can be set manually. Parameters are described in [1].
+#
+# [1] D.L. King, W.E. Boyson, J.A. Kratochvill. Photovoltaic Array Performance
+# Model. Sand2004-3535 (2004).
+
+thermal_model = {
+    'named_model': 'open_rack_cell_glassback',
+    # Temperature of open circuit modules is higher, specify whether to include
+    # this effect.
+    'open_circuit_rise': True
+     }
 # Or can set thermal model coefficients manually:
 """
-thermal_model = {'a':1,'b':1,'DT':3}
+thermal_model = {
+    'named_model': 'explicit',
+    'a':-3.56,
+    'b':-0.075,
+    'deltaT':3,
+    'open_circuit_rise':True
+}
 """
 
 print('\n** Racking parameters **')
@@ -106,8 +200,9 @@ print(pd.Series(racking_parameters))
 # Max string length
 # ------------------------------------------------------------------------------
 
-# Max allowable string voltage, for determining string length.
-max_string_voltage = 1500
+# Max allowable string voltage, for determining string length. Typically this
+# number is determined by the inverter.
+string_design_voltage = 1500
 
 # ------------------------------------------------------------------------------
 # Import weather data
@@ -120,7 +215,7 @@ print("\nImporting weather data...")
 # require an API key)
 lat, lon = 37.876, -122.247
 # Get an NSRDB api key for any point but the preloaded one (this api key will
-# not work, you need to get your own.)
+# not work, you need to get your own which will look like it.)
 api_key = 'BP2hICfC0ZQ2PT6h4xaU3vc4GAadf39fasdsPbZN'
 # Get weather data (takes a few minutes, result is cached for quick second calls).
 weather, info = vocmax.get_weather_data(lat,lon,api_key=api_key)
@@ -136,19 +231,19 @@ weather = weather.rename(columns={'DNI':'dni','DHI':'dhi','GHI':'ghi',
                      'Temperature':'temp_air',
                      'Wind Speed':'wind_speed'})
 
-
 # ------------------------------------------------------------------------------
 # Simulate system
 # ------------------------------------------------------------------------------
 
 # Run the calculation.
 print('Running Simulation...')
+t0 = time.time()
 df = vocmax.simulate_system(weather,
                                info,
                                module,
                                racking_parameters,
                                thermal_model)
-
+print('Simulation time: {:1.2f}'.format(time.time()-t0))
 # Calculate max power voltage, only possible if using CEC database for module parameters.
 if is_cec_module:
     _, df['v_mp'], _ = vocmax.sapm_mpp(df['effective_irradiance'],
@@ -159,20 +254,29 @@ if is_cec_module:
 # Calculate String Size
 # ------------------------------------------------------------------------------
 
+# Get ASHRAE design temperature:
+ashrae = vocmax.ashrae_get_data_at_loc(lat,lon)
+
 # Look up weather data uncertainty safety factor at the point of interest.
-temperature_error = vocmax.get_nsrdb_temperature_error(
-    info['Latitude'],info['Longitude'])
+temperature_error = vocmax.get_nsrdb_temperature_error(info['Latitude'],info['Longitude'])
 
 # Calculate weather data safety factor using module Voc temperature coefficient
-weather_data_safety_factor = temperature_error*np.abs(
-    module['Bvoco'])/module['Voco']
+Beta_Voco_fraction = np.abs(module['Bvoco'])/module['Voco']
+weather_data_safety_factor = temperature_error*Beta_Voco_fraction
+
+# Calculate propensity for extreme temperature fluctuations.
+extreme_cold_delta_T = vocmax.calculate_mean_yearly_min_temp(df.index,df['temp_air']) - df['temp_air'].min()
+
+# Compute safety factor for extreme cold temperatures
+extreme_cold_safety_factor = extreme_cold_delta_T*Beta_Voco_fraction
 
 # Add up different contributions to obtain an overall safety factor
-safety_factor = weather_data_safety_factor + 0.01
+safety_factor = weather_data_safety_factor + 0.016
+print('Total Safety Factor: {:1.1%}'.format(safety_factor))
 
 # Calculate string length.
-voc_summary = vocmax.make_voc_summary(df, module,
-                                   max_string_voltage=max_string_voltage,
+voc_summary = vocmax.make_voc_summary(df, info, module,
+                                string_design_voltage=string_design_voltage,
                                 safety_factor=safety_factor)
 
 print('Simulation complete.')
@@ -182,7 +286,7 @@ summary_text = vocmax.make_simulation_summary(df, info,
                                                  module,
                                                  racking_parameters,
                                                  thermal_model,
-                                                 max_string_voltage,
+                                                 string_design_voltage,
                                                  safety_factor)
 
 # Save the summary csv to file.
@@ -191,7 +295,8 @@ with open(summary_file,'w') as f:
     f.write(summary_text)
 
 print('\n** Voc Results **')
-print(voc_summary.to_string())
+print(voc_summary[[ 'max_module_voltage', 'safety_factor','string_length',
+                 'Cell Temperature', 'POA Irradiance']].to_string())
 
 # Calculate some IV curves if we are using CEC database.
 if is_cec_module:
@@ -213,7 +318,6 @@ fig_height = 4
 
 max_pos = np.argmax(np.array(df['v_oc']))
 plot_width = 300
-
 
 # Plot Voc vs. time
 plt.figure(0,figsize=(fig_width,fig_height))
@@ -244,14 +348,11 @@ plt.plot(voc_hist_x, voc_hist_y)
 plt.xlabel('Voc (Volts)')
 plt.ylabel('hrs/year')
 
-for j in voc_summary.index:
-    plt.plot(voc_summary['v_oc'][j] * np.array([1,1]), [0,10],
-             label=voc_summary['Conditions'][j])
-    plt.text(voc_summary['v_oc'][j],12, j,
-             rotation=90,
-             verticalalignment='bottom',
-             horizontalalignment='center')
+for key in voc_summary.index:
+    plt.plot(voc_summary['max_module_voltage'][key] * np.array([1,1]), [0,10],
+             label=key)
 plt.show()
+plt.legend()
 
 
 # Plot IV curve
@@ -264,70 +365,6 @@ if is_cec_module:
     plt.xlabel('Voltage (V)')
     plt.ylabel('Current (A)')
     plt.grid()
-
-if is_cec_module:
-    # Oerating voltage vs. time.
-    plt.figure(4,figsize=(7.5,3.5))
-    plt.clf()
-
-    voltage_bins = np.linspace(60,110,400)
-    dV = voltage_bins[1] - voltage_bins[0]
-    voc_hist_y_raw, voc_hist_x_raw = np.histogram(df['v_oc']/module['Voco']*100,
-                                                  bins=voltage_bins)
-
-    voc_hist_y = vocmax.scale_to_hours_per_year(voc_hist_y_raw, info)[1:]
-    voc_hist_x = voc_hist_x_raw[1:-1]
-
-    vmp_hist_y_raw, vmp_hist_x_raw = np.histogram(df['v_mp']/module['Voco']*100,
-                                                  bins=voltage_bins)
-
-    vmp_hist_y = vocmax.scale_to_hours_per_year(vmp_hist_y_raw, info)[1:]
-    vmp_hist_x = vmp_hist_x_raw[1:-1]
-
-
-    # plt.plot(voc_hist_x, voc_hist_y)
-    plt.plot(voltage_bins,0*voltage_bins,
-             color=[0.5,0.5,0.5])
-    plt.plot(vmp_hist_x, (0.99*vmp_hist_y + 0.01*voc_hist_y))
-    # plt.yscale('log')
-
-    plt.xlabel('Operating voltage/Voco (%)',fontsize=9)
-    plt.ylabel('hours/year',fontsize=9)
-    plt.xticks(fontsize=9)
-    plt.yticks(fontsize=9)
-
-
-    voc_summary.loc['P99.5 + safety factor',:] = voc_summary.loc['P99.5',:]
-    voc_summary.loc['P99.5 + safety factor','v_oc'] = voc_summary.loc['P99.5 + safety factor','v_oc']*1.03
-
-    voc_summary.loc['P99.5','color'] = 'C1'
-    voc_summary.loc['P99.5 + safety factor','color'] = 'C1'
-    voc_summary.loc['Trad','color'] = 'C3'
-    voc_summary.loc['Hist','color'] = 'C2'
-    voc_summary.loc['Day','color'] = 'C4'
-
-
-    n = 1
-    for j in voc_summary.index:
-        if j in ['P99.5', 'P99.5 + safety factor']:
-            line_y = [1,10]
-            text_y = 13
-        else:
-            line_y = [1, 5]
-            text_y = 8
-        plt.plot(voc_summary['v_oc'][j]/module['V_oc_ref']*100 * np.array([1,1]), line_y,
-                 label=voc_summary['Conditions'][j],
-                 color= voc_summary.loc[j,'color'])
-        plt.text(voc_summary['v_oc'][j]/module['V_oc_ref']*100,text_y, j,
-                 rotation=90,
-                 verticalalignment='bottom',
-                 horizontalalignment='center',
-                 color=voc_summary.loc[j,'color'],
-                 fontsize=9)
-        n=n+1
-
-    plt.show()
-
 
 # Scatter plot of Temperature/Irradiance where Voc is highest.
 plt.figure(5)
@@ -342,3 +379,6 @@ plt.ylabel('Cell Temperature (C)')
 plt.legend()
 # plt.xlim([0,1000])
 plt.show()
+
+
+

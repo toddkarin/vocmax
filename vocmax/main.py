@@ -9,6 +9,7 @@ toddkarin
 
 import numpy as np
 import pvlib
+import pvlib.bifacial
 # import nsrdbtools
 # import socket
 # import matplotlib
@@ -114,7 +115,7 @@ def get_weather_data(lat,lon,
                      join_mailing_list=False,
                      use_utc=False,
                      include_leap_year=True,
-                     years=np.arange(1998,2017.5),
+                     years=np.arange(1998,2018.5),
                      interval='30'
                      ):
     """
@@ -205,6 +206,10 @@ def get_weather_data(lat,lon,
 
         Time step for downloaded weather data in mintues. Options ars '60' or
         '30' (default).
+
+    tz_localize : bool
+
+        Weather to localize the time zone.
 
     Returns
     -------
@@ -378,8 +383,95 @@ def get_weather_data(lat,lon,
                         hour=hour,
                         minute=minute)
 
+    df.rename(columns={'Year':'year',
+                       'Month':'month',
+                       'Day':'day',
+                       'Hour':'hour',
+                       'Minute':'minute',
+                       'DNI':'dni',
+                        'GHI':'ghi',
+                       'DHI':'dhi',
+                       'Temperature':'temp_air',
+                       'Wind Speed':'wind_speed',
+                       },inplace=True)
+
     # TODO: Consider reloading from the file for consistency with future iterations.
     return df, info
+
+def ashrae_get_data():
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+
+    # Load temperature difference data.
+    ashrae = pd.read_csv(
+        os.path.join(dir_path, 'ASHRAE2017_temperature_data.csv')
+    )
+    return ashrae
+
+
+def ashrae_get_data_at_loc(lat,lon):
+    """
+
+    Parameters
+    ----------
+    lat
+    lon
+
+    Returns
+    -------
+    dataframe
+
+        fields are
+
+            'Latitude'
+
+            'Longitude'
+
+            'Extreme Annual Mean Minimum Dry Bulb Temperature' - ASHRAE
+            extreme minimum dry bulb temperature, in C
+
+    """
+    df = ashrae_get_data()
+
+    # Calculate distance to search point.
+    distance = nsrdb.haversine_distance(lat, lon, df['Latitude'], df['Longitude'])
+
+    closest_idx = distance.idxmin()
+
+    return df.iloc[closest_idx]
+
+
+def nec_correction_factor(temperature):
+    """
+    NEC 690.7(A)(2) correction factor from NEC2017.
+
+    Parameters
+    ----------
+    temperature : numeric
+        Temperature in C.
+
+    Returns
+    -------
+    correction_factor : flat
+
+    """
+    f = np.zeros_like(temperature, dtype='float')
+
+    f[temperature < 25] = 1.02
+    f[temperature < 20] = 1.04
+    f[temperature < 15] = 1.06
+    f[temperature < 10] = 1.08
+    f[temperature < 5] = 1.10
+    f[temperature < 0] = 1.12
+    f[temperature < -5] = 1.14
+    f[temperature < -10] = 1.16
+    f[temperature < -15] = 1.18
+    f[temperature < -20] = 1.20
+    f[temperature < -25] = 1.21
+    f[temperature < -30] = 1.23
+    f[temperature < -35] = 1.25
+
+    return f
+
 
 def get_nsrdb_temperature_error(lat,lon,
                                 number_of_closest_points=5):
@@ -455,7 +547,9 @@ def get_nsrdb_temperature_error(lat,lon,
 
 
 def simulate_system(weather, info, module_parameters,
-                    racking_parameters, thermal_model):
+                    racking_parameters, thermal_model,
+                    irrad_model='perez'
+                    ):
     """
 
     Use the PVLIB SAPM model to calculate maximum Voc.
@@ -506,6 +600,9 @@ def simulate_system(weather, info, module_parameters,
         'FD' : float
             Fraction of diffuse irradiance used by the module.
 
+        'efficiency' : float
+            Module fractional efficiency.
+
         'iv_model' : string
             Model for calculating Voc. Can be 'sapm', 'cec' or 'desoto'.
             TODO: Describe better.
@@ -552,9 +649,6 @@ def simulate_system(weather, info, module_parameters,
             compass direction along which the axis of rotation lies. Measured
             in decimal degrees East of North. Standard value is 0.
 
-        'albedo' : float
-            (optional) albedo of ground. default 0.25
-
         'backtrack' : bool
             Controls whether the tracker has the capability to ''backtrack''
             to avoid row-to-row shading. False denotes no backtrack
@@ -570,10 +664,10 @@ def simulate_system(weather, info, module_parameters,
 
         bifacial_model : string
 
-            Can be 'simple' or 'pvfactors'. The 'simple' bifacial modeling
-            method calculates the effective irradiance on the frontside of
-            the module and then assumes that the backside irradiance is equal
-            to the frontside irradiance times the
+            Can be 'proportional' or 'pvfactors'. The 'proportional' bifacial
+            modeling method calculates the effective irradiance on the
+            frontside of the module and then assumes that the backside
+            irradiance is equal to the frontside irradiance times the
             backside_irradiance_fraction times the bifaciality_factor. The
             'pvfactors' method uses bifacial modeling found in the pvfactors
             package.
@@ -583,7 +677,7 @@ def simulate_system(weather, info, module_parameters,
             For simple bifacial modeling, the backside irradiance is assumed
             to be equal to the frontside irradiance times the
             backside_irradiance_fraction. Required if using
-            bifacial_model 'simple'. Typical value is 0.3.
+            bifacial_model 'proportional'. Typical value is 0.3.
 
         pvrow_height : float.
             Height of the pv rows, measured at their center (m). Required if
@@ -594,8 +688,7 @@ def simulate_system(weather, info, module_parameters,
             using bifacial_model 'pvfactors'.
 
         albedo: float
-            Ground albedo. Required if
-            using bifacial_model 'pvfactors'.
+            Ground albedo. Required if using bifacial_model 'pvfactors'.
 
         n_pvrows: int, default 3
             Number of PV rows to consider in the PV array. Required if
@@ -635,35 +728,71 @@ def simulate_system(weather, info, module_parameters,
             the number of CPU's on the machine running the model. Required if
             using bifacial_model 'pvfactors'.
 
-    thermal_model: string or dict
+    thermal_model : dict
 
-        If string, can be
-            ‘open_rack_cell_glassback’ (default)
-            ‘roof_mount_cell_glassback’
-            ‘open_rack_cell_polymerback’
-            ‘insulated_back_polymerback’
-            ‘open_rack_polymer_thinfilm_steel’
-            ‘22x_concentrator_tracker’
+        named_model : string
 
-        If dict, supply the following parameters:
+            If named_model is 'explicit', then use SAPM parameters defined by
+            a, b, and deltaT. Otherwise named_model can be one of the
+            following strings:
 
-            a: float
+                ‘open_rack_cell_glassback’ (default)
+                ‘roof_mount_cell_glassback’
+                ‘open_rack_cell_polymerback’
+                ‘insulated_back_polymerback’
+                ‘open_rack_polymer_thinfilm_steel’
+                ‘22x_concentrator_tracker’
 
-            SAPM module parameter for establishing the upper limit for module
-            temperature at low wind speeds and high solar irradiance.
+        a: float
 
-            b :float
+            SAPM module parameter for establishing the upper limit for
+            module temperature at low wind speeds and high solar
+            irradiance.
+
+        b :float
 
             SAPM module parameter for establishing the rate at which the
-            module temperature drops as wind speed increases (see SAPM eqn.
-            11).
+            module temperature drops as wind speed increases (see SAPM
+            eqn. 11).
 
-            deltaT :float
+        deltaT :float
 
-            SAPM module parameter giving the temperature difference between
-            the cell and module back surface at the reference irradiance, E0.
+            SAPM module parameter giving the temperature difference
+            between the cell and module back surface at the reference
+            irradiance, E0.
+
+        open_circuit_rise : bool
+
+            The SAPM parameters are measured for modules at maximum power
+            point. At open-circuit voltage the module is warmer because less
+            energy is exported as electricity. If open_circuit_rise is True
+            then this temperature rise is taken into account, if False then
+            it is not.
+
+        thermal_mass : bool
+
+            Weather to take into account the thermal mass of the modules when
+            calculating temperature. Thermal mass is performed using an
+            exponentially weighted moving average [Bosco2016]
+
+        thermal_time_constant : float
+
+            Thermal time constant of the modules, in minutes.
 
 
+    irrad_model : str
+
+        Irradiance model for determining in-plane sky diffuse irradiance
+        component using the specified sky diffuse irradiance model. Default
+        is 'perez'
+
+        Sky diffuse models include:
+            * isotropic (default)
+            * klucher
+            * haydavies
+            * reindl
+            * king
+            * perez
 
 
     Returns
@@ -678,6 +807,13 @@ def simulate_system(weather, info, module_parameters,
 
         'temp_cell': cell temeprature in C.
 
+
+    References
+    ----------
+
+    [Bosco2016] N. Bosco, et al., Climate specific thermomechanical fatigue
+    of flat plate photovoltaic module solder joints, Microelectronics
+    Reliability (2016), http://dx.doi.org/10.1016/j.microrel.2016.03.024
 
     """
 
@@ -707,8 +843,7 @@ def simulate_system(weather, info, module_parameters,
     location = pvlib.location.Location(latitude=info['Latitude'],
                                        longitude=info['Longitude'])
 
-    if not 'albedo' in racking_parameters:
-        racking_parameters['albedo'] = 0.25
+
 
     # Add module parameters if some aren't specified.
     module_parameters = add_default_module_params(module_parameters)
@@ -755,18 +890,46 @@ def simulate_system(weather, info, module_parameters,
     # Extraterrestrial radiation
     dni_extra = pvlib.irradiance.get_extra_radiation(solar_position.index)
 
+
+    airmass = location.get_airmass(solar_position=solar_position)
+
+
     # Todo: Why haydavies?
+    # Perez is a good diffuse sky model, but takes a long time.
     total_irrad = pvlib.irradiance.get_total_irradiance(
-        surface_tilt,
-        surface_azimuth,
-        solar_position['zenith'],
-        solar_position['azimuth'],
-        weather['dni'],
-        weather['ghi'],
-        weather['dhi'],
-        model='haydavies',
-        dni_extra=dni_extra,
+        np.array(surface_tilt),
+        np.array(surface_azimuth),
+        np.array(solar_position['zenith']),
+        np.array(solar_position['azimuth']),
+        np.array(weather['dni'].astype('float')) + 1e-10,
+        np.array(weather['ghi'].astype('float')) + 1e-10,
+        np.array(weather['dhi'].astype('float')) + 1e-10,
+        model=irrad_model,
+        dni_extra=np.array(dni_extra) + 1e-10,
+        airmass=np.array(airmass['airmass_relative']),
         albedo=racking_parameters['albedo'])
+
+
+
+    for k in total_irrad.keys():
+        total_irrad[k][np.isnan(total_irrad[k])] = 0
+
+    # weather['poa_global'] = total_irrad['poa_global']
+
+
+    #
+    # total_irrad = pvlib.irradiance.get_total_irradiance(
+    #     surface_tilt,
+    #     surface_azimuth,
+    #     solar_position['zenith'],
+    #     solar_position['azimuth'],
+    #     weather['dni'].astype('float'),
+    #     weather['ghi'].astype('float'),
+    #     weather['dhi'].astype('float'),
+    #     model='perez',
+    #     dni_extra=dni_extra,
+    #     airmass=airmass['airmass_relative'],
+    #     albedo=racking_parameters['albedo'])
 
     if racking_parameters['racking_type'] == 'fixed_tilt':
         aoi = pvlib.irradiance.aoi(surface_tilt, surface_azimuth,
@@ -778,11 +941,25 @@ def simulate_system(weather, info, module_parameters,
         raise Exception('Racking type not understood')
         # aoi = single_axis_vals['aoi']
 
-    airmass = location.get_airmass(solar_position=solar_position)
+
+    if (not 'named_model' in thermal_model) or thermal_model['named_model'] == 'explicit':
+        thermal_model_params = {k: thermal_model[k] for k in ['a','b','deltaT']}
+    else:
+        thermal_model_params = thermal_model['named_model']
+
     temps = pvlib.pvsystem.sapm_celltemp(total_irrad['poa_global'],
                                          weather['wind_speed'],
                                          weather['temp_air'],
-                                         thermal_model)
+                                         thermal_model_params)
+
+    # if thermal_model['thermal_mass']:
+    #     thermal_alpha = np.exp(-(info['interval_in_hours'] * 60) / 270)
+    #
+
+    if thermal_model['open_circuit_rise']:
+        temps['temp_cell'] = weather['temp_air'] + \
+                (temps['temp_cell'] - weather['temp_air'])/( 1-module_parameters['efficiency'])
+
 
     # Spectral loss is typically very small on order of a few percent, assume no
     # spectral loss for simplicity
@@ -806,7 +983,7 @@ def simulate_system(weather, info, module_parameters,
     # Calculate effective irradiance.
 
 
-    # TODO : FIX ME
+
     if ('is_bifacial' in module_parameters) and \
         (module_parameters['is_bifacial']==True):
         if not 'bifacial_model' in racking_parameters:
@@ -848,7 +1025,8 @@ def simulate_system(weather, info, module_parameters,
                 weather.index, weather['dni'], weather['dhi'],
                 racking_parameters['gcr'],
                 racking_parameters['pvrow_height'],
-                racking_parameters['pvrow_width'], racking_parameters['albedo'],
+                racking_parameters['pvrow_width'],
+                racking_parameters['albedo'],
                 n_pvrows=racking_parameters['n_pvrows'],
                 # fast_mode_pvrow_index=racking_parameters['fast_mode_pvrow_index'],
                 index_observed_pvrow=racking_parameters['index_observed_pvrow'],
@@ -1147,7 +1325,6 @@ def simulate_system(weather, info, module_parameters,
 #         return report
 #
 
-
 def add_default_module_params(module_parameters):
     """
 
@@ -1194,8 +1371,8 @@ def add_default_module_params(module_parameters):
     return module_parameters
 
 
-def make_voc_summary(df, module_parameters,
-                     max_string_voltage=1500,
+def make_voc_summary(df, info, module_parameters,
+                     string_design_voltage=1500,
                      safety_factor=0.023):
     """
 
@@ -1205,61 +1382,101 @@ def make_voc_summary(df, module_parameters,
     Parameters
     ----------
     df : dataframe
-        Dataframe containing fields 'v_oc', 'ghi', 'temp_air'
+        Dataframe containing fields: 'v_oc', 'ghi', 'temp_air'
+
+    info : dict
+
+        Dictionary containing fields 'lat' and 'lon'. These are used to
+        calculate the ASHRAE standards.
 
     module_parameters : dict
         Dictionary containing module parameters. The module paramaters are
         used in a direct call to the function calculate_voc.
 
-    max_string_voltage : float
+    string_design_voltage : float
         Maximum allowable string voltage for the design, in V. Typically 600
         V, 1200 V or 1500 V
 
     safety_factor : float
         safety factor for calculating string length as a fraction of max Voc.
         An example value wuold be 0.023, corresponding to a safety factor of
-        2.3%.
+        2.3%. Safety factors are only used for 690.7(A)(1) standards.
 
     Returns
     -------
 
+    voc_summary : dataframe
+
+        Dataframe containing fields:
+
+        'max_module_voltage' - the maximum module voltage (not including
+        safety factor).
+
+        'string_design_voltage' - Maximum allowable string voltage for the
+        design, in V. Typically 600 V, 1200 V or 1500 V
+
+        'safety_factor' - safety factor for calculating string length as a
+        fraction of max Voc. An example value wuold be 0.023, corresponding
+        to a safety factor of 2.3%. Safety factors are only used for 690.7(A)(1)
+        standards.
+
+        'string_length' - Longest acceptable string length.
+
+        'Cell Temperature' - Temperature
+
+
     """
 
     voc_summary = pd.DataFrame(
-        columns=['Conditions', 'v_oc', 'max_string_voltage', 'safety_factor',
+        columns=['Conditions', 'max_module_voltage', 'string_design_voltage', 'safety_factor',
                  'string_length',
                  'Cell Temperature', 'POA Irradiance', 'long_note'],
-        index=['P99.5', 'Hist', 'Trad', 'Day'])
+        index=['690.7(A)(3)-P99.5',
+               '690.7(A)(3)-P100',
+               '690.7(A)(1)-DAY',
+               '690.7(A)(1)-NSRDB',
+               '690.7(A)(1)-ASHRAE',
+               '690.7(A)(2)-ASHRAE'])
 
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
+
+    ashrae = vocmax.ashrae_get_data_at_loc(info['Latitude'], info['Longitude'])
+    #
+
+    lowest_expected_temperature_ashrae = ashrae['Extreme Annual Mean Min Dry Bulb Temperature']
+
+
+    # mean_yearly_min_temp_ashrae =
     mean_yearly_min_day_temp = calculate_mean_yearly_min_temp(
         df.index[df['ghi'] > 150],
         df['temp_air'][df['ghi'] > 150])
 
-    voc_summary['safety_factor'] = safety_factor
+    voc_summary['safety_factor'] = 0
+    for f in ['690.7(A)(3)-P99.5', '690.7(A)(3)-P100']:
+        voc_summary.loc[f,'safety_factor'] = safety_factor
+
+
 
     # Calculate some standard voc values.
     voc_values = {
-        'Hist': df['v_oc'].max(),
-        'Trad': calculate_voc(1000, mean_yearly_min_temp,
-                              module_parameters),
-        'Day': calculate_voc(1000, mean_yearly_min_day_temp,
+        '690.7(A)(3)-P99.5': np.percentile(np.array(df['v_oc']), 99.5),
+        '690.7(A)(3)-P100': df['v_oc'].max(),
+        '690.7(A)(1)-DAY': calculate_voc(1000, mean_yearly_min_day_temp,
                              module_parameters),
-        # 'Norm_P99.5':
-        #     np.percentile(
-        #         calculate_normal_voc(df['dni'],
-        #                                        df['dhi'],
-        #                                        df['temp_air'],
-        #                                        module_parameters)
-        #         , 99.5),
-        'P99.5': np.percentile(np.array(df['v_oc']), 99.5),
+        '690.7(A)(1)-ASHRAE': calculate_voc(1000, lowest_expected_temperature_ashrae,module_parameters),
+        '690.7(A)(1)-NSRDB': calculate_voc(1000, mean_yearly_min_temp,
+                                           module_parameters),
+        '690.7(A)(2)-ASHRAE': module_parameters['Voco']*nec_correction_factor(lowest_expected_temperature_ashrae),
+
     }
     conditions = {
-        'P99.5': 'P99.5 Voc',
-        'Hist': 'Historical Maximum Voc',
-        'Trad': 'Voc at 1 sun and mean yearly min ambient temperature',
-        'Day': 'Voc at 1 sun and mean yearly minimum daytime (GHI>150 W/m2) temperature',
+        '690.7(A)(3)-P99.5': 'P99.5 Voc',
+        '690.7(A)(3)-P100': 'Historical Maximum Voc',
+        '690.7(A)(1)-NSRDB': 'Voc at 1 sun and mean yearly min ambient temperature from NSRDB',
+        '690.7(A)(1)-ASHRAE': 'Voc at 1 sun and mean yearly min ambient temperature from ASHRAE',
+        '690.7(A)(2)-ASHRAE': 'NEC 690.7a2 Voc, corrected by correction factor',
+        '690.7(A)(1)-DAY': 'Voc at 1 sun and mean yearly minimum daytime (GHI>150 W/m2) temperature',
         # 'Norm_P99.5': 'P99.5 Voc assuming module normal to sun',
     }
 
@@ -1267,57 +1484,70 @@ def make_voc_summary(df, module_parameters,
     s_p100 = get_temp_irradiance_for_voc_percentile(df, percentile=100,
                                                     cushion=0.0001)
     cell_temp = {
-        'P99.5': s_p99p5['temp_cell'],
-        'Day': mean_yearly_min_day_temp,
-        'Trad': mean_yearly_min_temp,
-        'Hist': s_p100['temp_cell']
+        '690.7(A)(3)-P99.5': s_p99p5['temp_cell'],
+        '690.7(A)(3)-P100': s_p100['temp_cell'],
+        '690.7(A)(1)-DAY': mean_yearly_min_day_temp,
+        '690.7(A)(1)-NSRDB': mean_yearly_min_temp,
+        '690.7(A)(1)-ASHRAE': lowest_expected_temperature_ashrae,
+        '690.7(A)(2)-ASHRAE': lowest_expected_temperature_ashrae,
+
     }
     poa_irradiance = {
-        'P99.5': s_p99p5['effective_irradiance'],
-        'Day': 1000,
-        'Trad': 1000,
-        'Hist': s_p100['effective_irradiance'],
+        '690.7(A)(3)-P99.5': s_p99p5['effective_irradiance'],
+        '690.7(A)(3)-P100': s_p100['effective_irradiance'],
+        '690.7(A)(1)-DAY': 1000,
+        '690.7(A)(1)-NSRDB': 1000,
+        '690.7(A)(1)-ASHRAE': 1000,
+        '690.7(A)(2)-ASHRAE': 1000,
     }
 
-    voc_summary['v_oc'] = voc_summary.index.map(voc_values)
+    voc_summary['max_module_voltage'] = voc_summary.index.map(voc_values)
     voc_summary['Conditions'] = voc_summary.index.map(conditions)
-    voc_summary['max_string_voltage'] = max_string_voltage
+    voc_summary['string_design_voltage'] = string_design_voltage
     voc_summary['POA Irradiance'] = voc_summary.index.map(poa_irradiance)
     voc_summary['Cell Temperature'] = voc_summary.index.map(cell_temp)
 
-    voc_summary['string_length'] = voc_summary['v_oc'].map(
-        lambda x: voc_to_string_length(x, max_string_voltage, safety_factor))
+    voc_summary['string_length'] = voc_summary['max_module_voltage'].map(
+        lambda x: voc_to_string_length(x, string_design_voltage, safety_factor))
 
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
     long_note = {
-        'P99.5': "99.5 Percentile Voc<br>" + \
-                 "P99.5 Voc: {:.3f} V<br>".format(voc_values['P99.5']) + \
+        '690.7(A)(3)-P99.5': "99.5 Percentile Voc<br>" + \
+                 "P99.5 Voc: {:.3f} V<br>".format(voc_values['690.7(A)(3)-P99.5']) + \
                  "Maximum String Length: {:.0f}<br>".format(
-                     voc_summary['string_length']['P99.5']) + \
+                    voc_summary['string_length']['690.7(A)(3)-P99.5']) + \
                  "Recommended 690.7(A)(3) value for string length.",
 
-        'Hist': 'Historical maximum Voc from {:.0f}-{:.0f}<br>'.format(
+        '690.7(A)(3)-P100': 'Historical maximum Voc from {:.0f}-{:.0f}<br>'.format(
             df['year'][0], df['year'][-1]) + \
-                'Hist Voc: {:.3f}<br>'.format(voc_values['Hist']) + \
+                'Hist Voc: {:.3f}<br>'.format(voc_values['690.7(A)(3)-P100']) + \
                 'Maximum String Length: {:.0f}<br>'.format(
-                    voc_summary['string_length']['Hist']) + \
+                    voc_summary['string_length']['690.7(A)(3)-P100']) + \
                 'Conservative value for string length.',
 
-        'Day': 'Traditional daytime Voc, using 1 sun irradiance and<br>' + \
+        '690.7(A)(1)-DAY': 'Traditional daytime Voc, using 1 sun irradiance and<br>' + \
                'mean yearly minimum daytime (GHI>150 W/m^2) dry bulb temperature of {:.1f} C.<br>'.format(
                    mean_yearly_min_day_temp) + \
-               'Trad Voc: {:.3f} V<br>'.format(voc_values['Day']) + \
+               'Day Voc: {:.3f} V<br>'.format(voc_values['690.7(A)(1)-DAY']) + \
                'Maximum String Length:{:.0f}<br>'.format(
-                   voc_summary['string_length']['Trad']) + \
+                   voc_summary['string_length']['690.7(A)(1)-DAY']) + \
                'Recommended 690.7(A)(1) Value',
 
-        'Trad': 'Traditional Voc, using 1 sun irradiance and<br>' + \
+        '690.7(A)(1)-NSRDB': 'Traditional 690.7a1 Voc, using 1 sun irradiance and<br>' + \
                 'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
                     mean_yearly_min_temp) + \
-                'Trad Voc: {:.3f}<br>'.format(voc_values['Trad']) + \
+                'Trad-NSRDB-690.7a1 Voc: {:.3f}<br>'.format(voc_values['690.7(A)(1)-NSRDB']) + \
                 'Maximum String Length: {:.0f}'.format(
-                    voc_summary['string_length']['Trad']),
+                    voc_summary['string_length']['690.7(A)(1)-NSRDB']),
+        '690.7(A)(1)-ASHRAE': 'Traditional 690.7a1 Voc<br>' + \
+                               'using 1 sun irradiance and<br>' + \
+                              'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
+                                  lowest_expected_temperature_ashrae) + \
+                              'Trad-ASHRAE-690.7a1 Voc: {:.3f}<br>'.format(
+                                  voc_values['690.7(A)(1)-ASHRAE']) + \
+                              'Maximum String Length: {:.0f}'.format(
+                                  voc_summary['string_length']['690.7(A)(1)-ASHRAE']),
 
         # 'Norm_P99.5': "Normal Voc, 99.5 percentile Voc value<br>".format(voc_values['Norm_P99.5']) +\
         #               "assuming array always oriented normal to sun.<br>" +\
@@ -1325,13 +1555,13 @@ def make_voc_summary(df, module_parameters,
         #               "Maximum String Length: {:.0f}".format(voc_summary['string_length']['Norm_P99.5'])
     }
     short_note = {
-        'P99.5': "Recommended 690.7(A)(3) value for string length.",
+        '690.7(A)(3)-P99.5': "Recommended 690.7(A)(3) value for string length.",
 
-        'Hist': 'Conservative 690.7(A)(3) value for string length.',
+        '690.7(A)(3)-P100': 'Conservative 690.7(A)(3) value for string length.',
 
-        'Day': 'Traditional design using daytime temp (GHI>150 W/m^2)',
+        '690.7(A)(1)-DAY': 'Traditional design using daytime temp (GHI>150 W/m^2)',
 
-        'Trad': 'Traditional design',
+        '690.7(A)(1)-ASHRAE': 'Traditional design',
 
         # 'Norm_P99.5': ""
     }
@@ -1340,6 +1570,7 @@ def make_voc_summary(df, module_parameters,
     voc_summary['short_note'] = voc_summary.index.map(short_note)
 
     return voc_summary
+
 
 
 def scale_to_hours_per_year(y, info):
@@ -1362,7 +1593,7 @@ def make_voc_histogram(df, info, number_bins=400):
 
 
 def make_simulation_summary(df, info, module_parameters, racking_parameters,
-                            thermal_model, max_string_voltage, safety_factor):
+                            thermal_model, string_design_voltage, safety_factor):
     """
 
     Makes a text summary of the simulation.
@@ -1379,8 +1610,8 @@ def make_simulation_summary(df, info, module_parameters, racking_parameters,
 
     """
 
-    voc_summary = make_voc_summary(df, module_parameters,
-                                   max_string_voltage=max_string_voltage,
+    voc_summary = make_voc_summary(df, info, module_parameters,
+                                   string_design_voltage=string_design_voltage,
                                    safety_factor=safety_factor)
 
     if type(thermal_model) == type(''):
@@ -1412,7 +1643,7 @@ def make_simulation_summary(df, info, module_parameters, racking_parameters,
         'Thermal model\n' + \
         'model type, Sandia\n' + \
         pd.Series(thermal_model).to_csv(header=False) + '\n' + \
-        'Max String Voltage,' + str(max_string_voltage) + '\n' + \
+        'String Design Voltage,' + str(string_design_voltage) + '\n' + \
         'vocmaxlib Version,' + vocmaxlib_version + '\n' + \
         '\nKey Voc Values\n' + \
         voc_summary.to_csv() + \
@@ -2015,7 +2246,14 @@ def voc_to_string_length(voc, max_string_voltage, safety_factor):
         Maximum string length
 
     """
-    return np.round(np.floor(max_string_voltage * (1 - safety_factor) / voc))
+
+    if voc == 0:
+        string_length = np.nan
+    else:
+        string_length = np.round(
+            np.floor(max_string_voltage * (1 - safety_factor) / voc))
+
+    return string_length
 
 
 def simulate_system_sandia(weather, info, module_parameters=None,

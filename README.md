@@ -269,3 +269,8 @@ safety_factor = temperature_error*temperature_coefficient_of_voc
 
 print('Safety Factor for weather data: {:.2%}'.format(safety_factor))
 ```
+
+
+# Todo
+
+- Change the voc summary to be Vmax rather than Voc.

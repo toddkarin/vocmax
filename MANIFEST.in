@@ -1,1 +1,2 @@
 include vocmax/mins01_nsrdb_ashrae_comparison.pkl
+include vocmax/ASHRAE2017_temperature_data.csv
