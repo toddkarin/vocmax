@@ -27,7 +27,6 @@ import time
 # ------------------------------------------------------------------------------
 
 # Option 1. If the module is in the CEC database, then can retreive parameters.
-"""
 cec_modules = vocmax.cec_modules
 cec_parameters = cec_modules['Jinko_Solar_JKM175M_72'].to_dict()
 sapm_parameters = vocmax.calculate_sapm_module_parameters(cec_parameters)
@@ -36,7 +35,7 @@ module = {**sapm_parameters, **cec_parameters}
 module['aoi_model'] = 'ashrae'
 module['ashrae_iam_param'] = 0.05
 module['is_bifacial'] = False
-module['efficiency'] = 0.18
+module['efficiency'] = module['I_mp_ref']*module['V_mp_ref']/module['A_c']/1000
 """
 # Option 2. Or can build a dictionary of parameters manually. Note that in order
 # to calculate MPP, it is necessary to include the CEC parameters: alpha_sc,
@@ -67,7 +66,7 @@ module = {
     # AOI loss model parameter.
     'ashrae_iam_param': 0.05
     }
-
+"""
 
 is_cec_module = 'a_ref' in module
 print('\n** Module parameters **')
