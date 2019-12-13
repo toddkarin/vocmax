@@ -2066,7 +2066,10 @@ def calculate_sapm_module_parameters(module_parameters,
     # param['Ixxo'] = iv_points_0['i_xx']
 
     voc_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['v_oc'], 1)
-    param['Bvoco'] = voc_fit_coeff[0]
+    Bvoco_from_fit = voc_fit_coeff[0]
+    param['Bvoco'] = module_parameters['beta_oc']
+    if np.abs((param['Bvoco']-Bvoco_from_fit)/param['Bvoco'])>0.25:
+        raise Warning('Inconsistency found in Bvoco, suggest to check datasheet. ')
 
     pmp_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['p_mp'], 1)
     param['Bpmpo'] = pmp_fit_coeff[0]
