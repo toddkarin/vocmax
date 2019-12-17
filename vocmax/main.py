@@ -27,6 +27,7 @@ import urllib
 import pytz
 import sys
 import os
+import warnings
 
 if sys.version_info[0] < 3:
     from StringIO import StringIO
@@ -398,17 +399,17 @@ def get_weather_data(lat,lon,
     # TODO: Consider reloading from the file for consistency with future iterations.
     return df, info
 
-def ashrae_get_data():
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+# def ashrae_get_data():
+#     dir_path = os.path.dirname(os.path.realpath(__file__))
+#
+#     # Load temperature difference data.
+#     ashrae = pd.read_csv(
+#         os.path.join(dir_path, 'ASHRAE2017_temperature_data.csv')
+#     )
+#     return ashrae
 
-    # Load temperature difference data.
-    ashrae = pd.read_csv(
-        os.path.join(dir_path, 'ASHRAE2017_temperature_data.csv')
-    )
-    return ashrae
 
-
-def ashrae_get_data_at_loc(lat,lon):
+def ashrae_get_design_conditions_at_loc(lat,lon):
     """
 
     Parameters
@@ -430,10 +431,10 @@ def ashrae_get_data_at_loc(lat,lon):
             extreme minimum dry bulb temperature, in C
 
     """
-    df = ashrae_get_data()
+    df = ashrae_get_design_conditions()
 
     # Calculate distance to search point.
-    distance = nsrdb.haversine_distance(lat, lon, df['Latitude'], df['Longitude'])
+    distance = nsrdb.haversine_distance(lat, lon, df['Lat'], df['Lon'])
 
     closest_idx = distance.idxmin()
 
@@ -454,7 +455,10 @@ def nec_correction_factor(temperature):
     correction_factor : flat
 
     """
-    f = np.zeros_like(temperature, dtype='float')
+    is_array = isinstance(temperature, np.ndarray)
+    temperature = np.array([temperature])
+    f = np.zeros_like(temperature, dtype='float') + 1
+
 
     f[temperature < 25] = 1.02
     f[temperature < 20] = 1.04
@@ -469,8 +473,12 @@ def nec_correction_factor(temperature):
     f[temperature < -25] = 1.21
     f[temperature < -30] = 1.23
     f[temperature < -35] = 1.25
+    f[np.isnan(temperature)] = np.nan
 
+    if not is_array:
+        f = f[0]
     return f
+
 
 
 def get_nsrdb_temperature_error(lat,lon,
@@ -529,7 +537,7 @@ def get_nsrdb_temperature_error(lat,lon,
 
     # Load temperature difference data.
     df = pd.read_pickle(
-        os.path.join(dir_path, 'mins01_nsrdb_ashrae_comparison.pkl')
+        os.path.join(dir_path, 'nsrdb_ashrae_comparison.pkl')
     )
 
     # Calculate distance to search point.
@@ -540,11 +548,109 @@ def get_nsrdb_temperature_error(lat,lon,
     closest_idx = distance_sort.index[:number_of_closest_points]
 
     # Calculate temperature difference
-    temperature_difference = (df['nsrdb_mean_yearly_min_air_temp'] - df[
-        'ashrae_mean_yearly_min_air_temp']).loc[closest_idx]
+    temperature_difference = df['nsrdb-ashrae Extreme_Annual_Mean_Min_DB'].loc[closest_idx]
 
     return temperature_difference.max()
 
+
+
+
+def ashrae_import_design_conditions(filename='2017DesignConditions_s.xlsx'):
+    """
+
+    Load the ASHRAE 2017 design conditions excel file. This file is NOT
+    provided in vocmax, it must be purchased directly from ASHRAE and added
+    to the current directory. The filename is '2017DesignConditions_s.xlsx'.
+    The '_s' at the end of the filename stands for 'SI'. There is also
+    another file '2017DesignConditions_p.xlsx' that contains measurements in
+    imperial units, do not use this file.
+
+    In order to use this function, purchase the weather data viewer DVD,
+    version 6.0, available at:
+    https://www.techstreet.com/ashrae/standards/weather-data-viewer-dvd-version-6-0?ashrae_auth_token=12ce7b1d-2e2e-472b-b689-8065208f2e36&product_id=1949790
+
+    Importing the excel file takes around 1 minute, the data is then saved as
+    a csv file with name filename + '.csv' in the current directory. This
+    makes loading quick the second time.
+
+    Parameters
+    ----------
+    filename : string
+        Filename to import.
+
+    Returns
+    -------
+    df : dataframe
+        Pandas dataframe containing certain fields of the weather data file.
+
+    """
+
+    # filename = '2017DesignConditions_s.xlsx'
+
+
+    df = pd.read_excel(filename,
+                       skiprows=0,
+                       sheet_name=0,
+                       header=[1, 2, 3],
+                       verbose=False)
+
+    filename_out = filename + '.csv'
+
+
+    df_out = pd.DataFrame(
+        {'Lat': np.array(df['Lat']).flatten(),
+         'Lon': np.array(df['Lon']).flatten(),
+         'Country': np.array(df['Country']).flatten(),
+         'Station Name': np.array(df['Station Name']).flatten(),
+         'Extreme_Annual_Mean_Min_DB': np.array(
+             df['Extreme Annual DB']['Mean']['Min']).flatten(),
+         'Extreme_Annual_Standard Deviation_Min_DB': np.array(
+             df['Extreme Annual DB']['Standard Deviation']['Min']).flatten(),
+         '20-Year Return Period Extreme Min DB': np.array(
+             df['n-Year Return Period Values of Extreme DB']['n=20 years'][
+                 'Min']).flatten(),
+         }
+    )
+    df_out.to_csv(filename_out,index=False)
+
+    return df_out
+
+def ashrae_is_design_conditions_available(filename='2017DesignConditions_s.xlsx'):
+    return os.path.exists(filename)
+
+
+def ashrae_get_design_conditions(filename='2017DesignConditions_s.xlsx'):
+    """
+    Get the ASHRAE design conditions data.
+
+
+    Parameters
+    ----------
+    filename
+
+    Returns
+    -------
+    df : dataframe
+
+        Pandas dataframe containing certain fields of the ASHARE design
+        conditions file
+
+
+
+    """
+
+    if os.path.exists(filename + '.csv'):
+        df = pd.read_csv(filename + '.csv')
+    elif os.path.exists(filename):
+        print("""Importing and compressing ASHRAE design conditions excel file. Future calls will quickly call csv version. """)
+        print('Found file: {}'.format(filename))
+        print('Expected loading time: 1.0 minute')
+
+        df = ashrae_import_design_conditions(filename)
+    else:
+        raise Exception("Design conditions file '{}' not found. File must be purchased from ASHRAE and placed in current directory.".format(filename))
+
+    return df
 
 def simulate_system(weather, info, module_parameters,
                     racking_parameters, thermal_model,
@@ -987,7 +1093,7 @@ def simulate_system(weather, info, module_parameters,
     if ('is_bifacial' in module_parameters) and \
         (module_parameters['is_bifacial']==True):
         if not 'bifacial_model' in racking_parameters:
-            raise Warning("""'bifacial_model' in racking_parameters is not 
+            warnings.warn("""'bifacial_model' in racking_parameters is not 
             specified, can be 'simple' or 'pvfactors'. Defaulting to 
             'simple'.""")
             racking_parameters['bifacial_model']='proportional'
@@ -1441,11 +1547,14 @@ def make_voc_summary(df, info, module_parameters,
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
 
-    ashrae = vocmax.ashrae_get_data_at_loc(info['Latitude'], info['Longitude'])
-    #
+    ashrae_available = ashrae_is_design_conditions_available()
 
-    lowest_expected_temperature_ashrae = ashrae['Extreme Annual Mean Min Dry Bulb Temperature']
+    if ashrae_available:
+        ashrae_loc = vocmax.ashrae_get_design_conditions_at_loc(info['Latitude'], info['Longitude'])
 
+        lowest_expected_temperature_ashrae = ashrae_loc['Extreme_Annual_Mean_Min_DB']
+    else:
+        lowest_expected_temperature_ashrae = np.nan
 
     # mean_yearly_min_temp_ashrae =
     mean_yearly_min_day_temp = calculate_mean_yearly_min_temp(
@@ -2011,7 +2120,7 @@ def calculate_sapm_module_parameters(module_parameters,
 
          Isco - short circuit current at STC
 
-         Bisco - temperature coefficient of Isc near STC, in A/C
+         alpha_sc - temperature coefficient of Isc near STC, in A/C
 
          Vmpo - voltage at maximum power point at STC, in V
 
@@ -2058,7 +2167,9 @@ def calculate_sapm_module_parameters(module_parameters,
                                              resistance_shunt, nNsVth)
 
     param['Voco'] = iv_points_0['v_oc']
+    # param['Voco'] = module_parameters['V_oc_ref']
     param['Isco'] = iv_points_0['i_sc']
+    # param['Isco'] = module_parameters['I_sc_ref']
     param['Impo'] = iv_points_0['i_mp']
     param['Vmpo'] = iv_points_0['v_mp']
     param['Pmpo'] = iv_points_0['p_mp']
@@ -2066,16 +2177,15 @@ def calculate_sapm_module_parameters(module_parameters,
     # param['Ixxo'] = iv_points_0['i_xx']
 
     voc_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['v_oc'], 1)
-    Bvoco_from_fit = voc_fit_coeff[0]
-    param['Bvoco'] = module_parameters['beta_oc']
-    if np.abs((param['Bvoco']-Bvoco_from_fit)/param['Bvoco'])>0.25:
-        raise Warning('Inconsistency found in Bvoco, suggest to check datasheet. ')
+    param['Bvoco'] = voc_fit_coeff[0]
 
     pmp_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['p_mp'], 1)
     param['Bpmpo'] = pmp_fit_coeff[0]
 
+
+
     isc_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['i_sc'], 1)
-    param['Bisco'] = isc_fit_coeff[0]
+    param['alpha_sc'] = isc_fit_coeff[0]
 
     param['Mbvoc'] = 0
     param['FD'] = 1
@@ -2107,6 +2217,56 @@ def calculate_sapm_module_parameters(module_parameters,
 
     return param
 
+def cec_to_sapm(module,reference_irradiance=1000,reference_temperature=25):
+    """
+
+    Parameters
+    ----------
+    module : dict or series
+        CEC module parameters.
+
+        'alpha_sc': temperature coefficient of short-circuit current near
+        reference conditions, in A/C.
+
+
+    reference_irradiance
+    reference_temperature
+
+    Returns
+    -------
+    sapm : dict or series
+
+        'alpha_sc': temperature coefficient of short-circuit current near
+        reference conditions, in A/C
+
+
+    """
+    # Calculate sapm parameters.
+    sapm = calculate_sapm_module_parameters(module,
+                                     reference_irradiance=reference_irradiance,
+                                     reference_temperature=reference_temperature)
+
+    # Replace certain parameters with those explicitly specified.
+    if np.abs((sapm['Bvoco'] - module['beta_oc']) / sapm['Bvoco']) > 0.25:
+        warnings.warn('Inconsistency found in Bvoco, suggest to check datasheet. ')
+    sapm['Bvoco'] = module['beta_oc']
+
+    # Note that
+    alpha_sc_Amp_per_C =  module['alpha_sc']
+    if np.abs((sapm['alpha_sc'] - alpha_sc_Amp_per_C) / sapm['alpha_sc']) > 0.25:
+        warnings.warn("From Desoto model, find alpha_sc = {:1.3f} A/C, but value in CEC database is {:1.3f} A/C".format(
+                          sapm['alpha_sc'], alpha_sc_Amp_per_C) )
+    sapm['alpha_sc'] = alpha_sc_Amp_per_C
+
+    sapm['Pmpo'] = module['I_mp_ref']*module['V_mp_ref']
+
+
+    sapm['efficiency'] = module['I_mp_ref'] * \
+                          module['V_mp_ref'] / \
+                          module['A_c'] / 1000
+    return sapm
+
+#     raise Warning('Inconsistency found in Bvoco, suggest to check datasheet. ')
 
 #
 #

@@ -28,14 +28,16 @@ import time
 
 # Option 1. If the module is in the CEC database, then can retreive parameters.
 cec_modules = vocmax.cec_modules
-cec_parameters = cec_modules['Jinko_Solar_JKM175M_72'].to_dict()
-sapm_parameters = vocmax.calculate_sapm_module_parameters(cec_parameters)
+cec_parameters = cec_modules['Jinko_Solar_JKM295PP_72'].to_dict()
+# Create SAPM parameters from CEC parameters.
+sapm_parameters = vocmax.cec_to_sapm(cec_parameters)
 # Calculate extra module parameters for your information:
 module = {**sapm_parameters, **cec_parameters}
+# AOI loss model controls reflection from glass at non-normal incidence angles.
+# Can be 'ashrae' or 'no_loss'
 module['aoi_model'] = 'ashrae'
 module['ashrae_iam_param'] = 0.05
 module['is_bifacial'] = False
-module['efficiency'] = module['I_mp_ref']*module['V_mp_ref']/module['A_c']/1000
 """
 # Option 2. Or can build a dictionary of parameters manually. Note that in order
 # to calculate MPP, it is necessary to include the CEC parameters: alpha_sc,
@@ -253,8 +255,12 @@ if is_cec_module:
 # Calculate String Size
 # ------------------------------------------------------------------------------
 
-# Get ASHRAE design temperature:
-ashrae = vocmax.ashrae_get_data_at_loc(lat,lon)
+# IMPORTANT: one must add the ASHRAE spreadsheet to this file in order to
+# automatically calucate traditional values using ASHRAE design conditions.
+ashrae_available = vocmax.ashrae_is_design_conditions_available()
+if not ashrae_available:
+    print("""** IMPORTANT ** add the ASHRAE design conditions spreadsheet to this 
+    directory in order to get ASHRAE design.""")
 
 # Look up weather data uncertainty safety factor at the point of interest.
 temperature_error = vocmax.get_nsrdb_temperature_error(info['Latitude'],info['Longitude'])
@@ -348,8 +354,10 @@ plt.xlabel('Voc (Volts)')
 plt.ylabel('hrs/year')
 
 for key in voc_summary.index:
-    plt.plot(voc_summary['max_module_voltage'][key] * np.array([1,1]), [0,10],
+    if ('ASHRAE' in key and ashrae_available) or ('ASHRAE' not in key):
+        plt.plot(voc_summary['max_module_voltage'][key] * np.array([1,1]), [0,10],
              label=key)
+
 plt.show()
 plt.legend()
 
