@@ -1001,6 +1001,7 @@ def simulate_system(weather, info, module_parameters,
     airmass = location.get_airmass(solar_position=solar_position)
 
 
+    nighttime_irradiance_addition = 1e-20
     # Todo: Why haydavies?
     # Perez is a good diffuse sky model, but takes a long time.
     total_irrad = pvlib.irradiance.get_total_irradiance(
@@ -1008,11 +1009,11 @@ def simulate_system(weather, info, module_parameters,
         np.array(surface_azimuth),
         np.array(solar_position['zenith']),
         np.array(solar_position['azimuth']),
-        np.array(weather['dni'].astype('float')) + 1e-10,
-        np.array(weather['ghi'].astype('float')) + 1e-10,
-        np.array(weather['dhi'].astype('float')) + 1e-10,
+        np.array(weather['dni'].astype('float'))+nighttime_irradiance_addition,
+        np.array(weather['ghi'].astype('float'))+nighttime_irradiance_addition,
+        np.array(weather['dhi'].astype('float'))+nighttime_irradiance_addition,
         model=irrad_model,
-        dni_extra=np.array(dni_extra) + 1e-10,
+        dni_extra=np.array(dni_extra)+nighttime_irradiance_addition,
         airmass=np.array(airmass['airmass_relative']),
         albedo=racking_parameters['albedo'])
 
@@ -1563,8 +1564,6 @@ def make_voc_summary(df, info, module_parameters,
             lowest_expected_temperature_ashrae = ashrae_loc['Extreme_Annual_Mean_Min_DB']
         else:
             lowest_expected_temperature_ashrae = np.nan
-
-
 
 
 
