@@ -1657,7 +1657,15 @@ def make_voc_summary(df, info, module_parameters,
                                   voc_values['690.7(A)(1)-ASHRAE']) + \
                               'Maximum String Length: {:.0f}'.format(
                                   voc_summary['string_length']['690.7(A)(1)-ASHRAE']),
-
+        '690.7(A)(2)-ASHRAE': 'Traditional 690.7(A)(2) value<br>' + \
+                              'using NEC derating table and<br>' + \
+                              'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
+                                  lowest_expected_temperature_ashrae) + \
+                              'Trad-ASHRAE-690.7(A)(2) Voc: {:.3f}<br>'.format(
+                                  voc_values['690.7(A)(2)-ASHRAE']) + \
+                              'Maximum String Length: {:.0f}'.format(
+                                  voc_summary['string_length'][
+                                      '690.7(A)(2)-ASHRAE']),
         # 'Norm_P99.5': "Normal Voc, 99.5 percentile Voc value<br>".format(voc_values['Norm_P99.5']) +\
         #               "assuming array always oriented normal to sun.<br>" +\
         #               "Norm_P99.5 Voc: {:.3f}<br>".format(voc_values['Norm_P99.5']) +\
@@ -1670,7 +1678,9 @@ def make_voc_summary(df, info, module_parameters,
 
         '690.7(A)(1)-DAY': 'Traditional design using daytime temp (GHI>150 W/m^2)',
 
-        '690.7(A)(1)-ASHRAE': 'Traditional design',
+        '690.7(A)(1)-ASHRAE': 'Traditional design using ASHRAE and temperature coefficient',
+        '690.7(A)(1)-NSRDB': 'Traditional design using NSRDB and temperature coefficient',
+        '690.7(A)(2)-ASHRAE': 'Traditional design using ASHRAE and standard derating.',
 
         # 'Norm_P99.5': ""
     }
