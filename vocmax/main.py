@@ -409,13 +409,14 @@ def get_weather_data(lat,lon,
 #     return ashrae
 
 
-def ashrae_get_design_conditions_at_loc(lat,lon):
+def ashrae_get_design_conditions_at_loc(lat,lon, ashrae):
     """
 
     Parameters
     ----------
     lat
     lon
+    ashrae : dataframe
 
     Returns
     -------
@@ -431,14 +432,14 @@ def ashrae_get_design_conditions_at_loc(lat,lon):
             extreme minimum dry bulb temperature, in C
 
     """
-    df = ashrae_get_design_conditions()
+    # df = ashrae_get_design_conditions()
 
     # Calculate distance to search point.
-    distance = nsrdb.haversine_distance(lat, lon, df['Lat'], df['Lon'])
+    distance = nsrdb.haversine_distance(lat, lon, ashrae['Lat'], ashrae['Lon'])
 
     closest_idx = distance.idxmin()
 
-    return df.iloc[closest_idx]
+    return ashrae.iloc[closest_idx]
 
 
 def nec_correction_factor(temperature):
@@ -1479,7 +1480,8 @@ def add_default_module_params(module_parameters):
 
 def make_voc_summary(df, info, module_parameters,
                      string_design_voltage=1500,
-                     safety_factor=0.023):
+                     safety_factor=0.023,
+                     ashrae='local_load'):
     """
 
     Calculate maximum Voc expected using four relevant standards. See
@@ -1547,14 +1549,24 @@ def make_voc_summary(df, info, module_parameters,
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
 
-    ashrae_available = ashrae_is_design_conditions_available()
-
-    if ashrae_available:
-        ashrae_loc = vocmax.ashrae_get_design_conditions_at_loc(info['Latitude'], info['Longitude'])
-
-        lowest_expected_temperature_ashrae = ashrae_loc['Extreme_Annual_Mean_Min_DB']
+    if type(ashrae) == type(pd.DataFrame()):
+        ashrae_loc = vocmax.ashrae_get_design_conditions_at_loc(
+            info['Latitude'], info['Longitude'], ashrae)
+        lowest_expected_temperature_ashrae = ashrae_loc[
+            'Extreme_Annual_Mean_Min_DB']
     else:
-        lowest_expected_temperature_ashrae = np.nan
+        ashrae_available = ashrae_is_design_conditions_available()
+
+        if ashrae_available:
+            ashrae = ashrae_get_design_conditions()
+            ashrae_loc = vocmax.ashrae_get_design_conditions_at_loc(info['Latitude'], info['Longitude'],ashrae)
+            lowest_expected_temperature_ashrae = ashrae_loc['Extreme_Annual_Mean_Min_DB']
+        else:
+            lowest_expected_temperature_ashrae = np.nan
+
+
+
+
 
     # mean_yearly_min_temp_ashrae =
     mean_yearly_min_day_temp = calculate_mean_yearly_min_temp(
@@ -1692,6 +1704,27 @@ def make_voc_summary(df, info, module_parameters,
 
 
 
+def get_s3_csv(filename):
+    """
+
+
+    """
+    import boto3
+
+    # filename = '2017DesignConditions_s.xlsx.csv'
+
+    bucket = 'pvtools-nsrdb-pickle'
+
+    # connect to AWS S3
+    s3 = boto3.resource('s3')
+
+    obj = s3.Object(bucket, filename)
+
+    df = pd.read_csv(obj.get()['Body'])
+
+    return df
+
+
 def scale_to_hours_per_year(y, info):
     return y / info['timedelta_in_years'] * info['interval_in_hours']
 
@@ -1712,7 +1745,8 @@ def make_voc_histogram(df, info, number_bins=400):
 
 
 def make_simulation_summary(df, info, module_parameters, racking_parameters,
-                            thermal_model, string_design_voltage, safety_factor):
+                            thermal_model, string_design_voltage, safety_factor,
+                            ashrae='local_load'):
     """
 
     Makes a text summary of the simulation.
@@ -1731,7 +1765,8 @@ def make_simulation_summary(df, info, module_parameters, racking_parameters,
 
     voc_summary = make_voc_summary(df, info, module_parameters,
                                    string_design_voltage=string_design_voltage,
-                                   safety_factor=safety_factor)
+                                   safety_factor=safety_factor,
+                                   ashrae=ashrae)
 
     if type(thermal_model) == type(''):
         thermal_model = {'Model parameters': thermal_model}
@@ -1978,7 +2013,8 @@ def sapm_voc(effective_irradiance, temp_cell, module, reference_temperature=25,
              reference_irradiance=1000):
     """
 
-    NOTE: this is a different definition of effective irradiance (i.e. normalized).
+    This function differs from the PVLIB version in that the effective
+    irradiance is in W/m2.
 
     Parameters
     ----------
