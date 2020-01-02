@@ -325,27 +325,20 @@ max_pos = np.argmax(np.array(df['v_oc']))
 plot_width = 300
 
 # Plot Voc vs. time
-plt.figure(0,figsize=(fig_width,fig_height))
-plt.clf()
-plt.plot(df.index[max_pos-plot_width:max_pos+plot_width],
-         df['v_oc'][max_pos-plot_width:max_pos+plot_width])
-ylims = np.array(plt.ylim())
-plt.plot([ df.index[max_pos],df.index[max_pos]] , ylims)
-plt.ylabel('Voc (V)')
-plt.show()
-
-# Plot Irradiance vs. time
-plt.figure(11,figsize=(fig_width,fig_height))
-plt.clf()
-plt.plot(df.index[max_pos-plot_width:max_pos+plot_width],
-         df['effective_irradiance'][max_pos-plot_width:max_pos+plot_width])
-ylims = np.array(plt.ylim())
-plt.plot([ df.index[max_pos],df.index[max_pos]] , ylims)
-plt.ylabel('POA Irradiance')
-plt.show()
+plot_key = ['v_oc','ghi','effective_irradiance','temp_air']
+plot_ylabel = ['Voc (V)', 'GHI (W/m2)', 'POA Irradiance (W/m2)', 'Air Temperature (C)']
+for j in range(len(plot_key)):
+    plt.figure(j,figsize=(fig_width,fig_height))
+    plt.clf()
+    plt.plot(df.index[max_pos-plot_width:max_pos+plot_width],
+             df[plot_key[j]][max_pos-plot_width:max_pos+plot_width])
+    ylims = np.array(plt.ylim())
+    plt.plot([ df.index[max_pos],df.index[max_pos]] , ylims)
+    plt.ylabel(plot_ylabel[j])
+    plt.show()
 
 # Plot Voc histogram
-plt.figure(1,figsize=(fig_width,fig_height))
+plt.figure(11,figsize=(fig_width,fig_height))
 plt.clf()
 voc_hist_x, voc_hist_y = vocmax.make_voc_histogram(df,info)
 
@@ -364,17 +357,16 @@ plt.legend()
 
 # Plot IV curve
 if is_cec_module:
-    plt.figure(3)
+    plt.figure(12)
     plt.clf()
     for j in range(len(iv_curve)):
         plt.plot(iv_curve[j]['v'], iv_curve[j]['i'])
-
     plt.xlabel('Voltage (V)')
     plt.ylabel('Current (A)')
     plt.grid()
 
 # Scatter plot of Temperature/Irradiance where Voc is highest.
-plt.figure(5)
+plt.figure(13)
 plt.clf()
 cax = df['v_oc']>np.percentile(df['v_oc'],99.9)
 plt.plot(df.loc[:,'effective_irradiance'], df.loc[:,'temp_cell'],'.',
@@ -386,6 +378,4 @@ plt.ylabel('Cell Temperature (C)')
 plt.legend()
 # plt.xlim([0,1000])
 plt.show()
-
-
 
