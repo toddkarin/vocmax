@@ -1001,43 +1001,29 @@ def simulate_system(weather, info, module_parameters,
     airmass = location.get_airmass(solar_position=solar_position)
 
 
-    nighttime_irradiance_addition = 1e-20
-    # Todo: Why haydavies?
-    # Perez is a good diffuse sky model, but takes a long time.
+    # Perez is a good diffuse sky model
     total_irrad = pvlib.irradiance.get_total_irradiance(
-        np.array(surface_tilt),
-        np.array(surface_azimuth),
-        np.array(solar_position['zenith']),
-        np.array(solar_position['azimuth']),
-        np.array(weather['dni'].astype('float'))+nighttime_irradiance_addition,
-        np.array(weather['ghi'].astype('float'))+nighttime_irradiance_addition,
-        np.array(weather['dhi'].astype('float'))+nighttime_irradiance_addition,
-        model=irrad_model,
-        dni_extra=np.array(dni_extra)+nighttime_irradiance_addition,
-        airmass=np.array(airmass['airmass_relative']),
+        surface_tilt,
+        surface_azimuth,
+        solar_position['zenith'],
+        solar_position['azimuth'],
+        weather['dni'].astype('float'),
+        weather['ghi'].astype('float'),
+        weather['dhi'].astype('float'),
+        model='perez',
+        dni_extra=dni_extra,
+        airmass=airmass['airmass_relative'],
         albedo=racking_parameters['albedo'])
 
-
+    # Add a small irradiance during night time
+    nighttime_irradiance_addition = 0
 
     for k in total_irrad.keys():
         total_irrad[k][np.isnan(total_irrad[k])] = 0
+        total_irrad[k] = total_irrad[k] + nighttime_irradiance_addition
 
-    # weather['poa_global'] = total_irrad['poa_global']
 
 
-    #
-    # total_irrad = pvlib.irradiance.get_total_irradiance(
-    #     surface_tilt,
-    #     surface_azimuth,
-    #     solar_position['zenith'],
-    #     solar_position['azimuth'],
-    #     weather['dni'].astype('float'),
-    #     weather['ghi'].astype('float'),
-    #     weather['dhi'].astype('float'),
-    #     model='perez',
-    #     dni_extra=dni_extra,
-    #     airmass=airmass['airmass_relative'],
-    #     albedo=racking_parameters['albedo'])
 
     if racking_parameters['racking_type'] == 'fixed_tilt':
         aoi = pvlib.irradiance.aoi(surface_tilt, surface_azimuth,
@@ -1630,21 +1616,30 @@ def make_voc_summary(df, info, module_parameters,
     voc_summary['string_length'] = voc_summary['max_module_voltage'].map(
         lambda x: voc_to_string_length(x, string_design_voltage, safety_factor))
 
+    max_module_voltage_with_safety_factor = voc_summary['max_module_voltage']*(1+ voc_summary['safety_factor'])
+
+
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
     long_note = {
         '690.7(A)(3)-P99.5': "99.5 Percentile Voc<br>" + \
-                 "P99.5 Voc: {:.3f} V<br>".format(voc_values['690.7(A)(3)-P99.5']) + \
+                 "690.7(A)(3)-P99.5: {:.3f} V<br>".format(voc_values['690.7(A)(3)-P99.5']) + \
+                 "690.7(A)(3)-P99.5 + {:1.1%} SF: {:.3f} V<br>".format(
+                     voc_summary['safety_factor']['690.7(A)(3)-P99.5'],
+                     max_module_voltage_with_safety_factor['690.7(A)(3)-P99.5']) + \
                  "Maximum String Length: {:.0f}<br>".format(
                     voc_summary['string_length']['690.7(A)(3)-P99.5']) + \
                  "Recommended 690.7(A)(3) value for string length.",
 
         '690.7(A)(3)-P100': 'Historical maximum Voc from {:.0f}-{:.0f}<br>'.format(
             df['year'][0], df['year'][-1]) + \
-                'Hist Voc: {:.3f}<br>'.format(voc_values['690.7(A)(3)-P100']) + \
+                '690.7(A)(3)-P100: {:.3f}<br>'.format(voc_values['690.7(A)(3)-P100']) + \
+                "690.7(A)(3)-P100 + {:1.1%} SF: {:.3f} V<br>".format(
+                    voc_summary['safety_factor']['690.7(A)(3)-P100'],
+                    max_module_voltage_with_safety_factor['690.7(A)(3)-P100']) + \
                 'Maximum String Length: {:.0f}<br>'.format(
                     voc_summary['string_length']['690.7(A)(3)-P100']) + \
-                'Conservative value for string length.',
+                'Conservative 690.7(A)(3) value for string length.',
 
         '690.7(A)(1)-DAY': 'Traditional daytime Voc, using 1 sun irradiance and<br>' + \
                'mean yearly minimum daytime (GHI>150 W/m^2) dry bulb temperature of {:.1f} C.<br>'.format(
@@ -1654,13 +1649,13 @@ def make_voc_summary(df, info, module_parameters,
                    voc_summary['string_length']['690.7(A)(1)-DAY']) + \
                'Recommended 690.7(A)(1) Value',
 
-        '690.7(A)(1)-NSRDB': 'Traditional 690.7a1 Voc, using 1 sun irradiance and<br>' + \
+        '690.7(A)(1)-NSRDB': 'Traditional 690.7(A)(1) value, using 1 sun irradiance and<br>' + \
                 'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
                     mean_yearly_min_temp) + \
-                'Trad-NSRDB-690.7a1 Voc: {:.3f}<br>'.format(voc_values['690.7(A)(1)-NSRDB']) + \
+                '690.7(A)(1)-NSRDB: {:.3f}<br>'.format(voc_values['690.7(A)(1)-NSRDB']) + \
                 'Maximum String Length: {:.0f}'.format(
                     voc_summary['string_length']['690.7(A)(1)-NSRDB']),
-        '690.7(A)(1)-ASHRAE': 'Traditional 690.7a1 Voc<br>' + \
+        '690.7(A)(1)-ASHRAE': 'Traditional 690.7(A)(1) value<br>' + \
                                'using 1 sun irradiance and<br>' + \
                               'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
                                   lowest_expected_temperature_ashrae) + \
