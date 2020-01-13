@@ -267,7 +267,7 @@ temperature_error = vocmax.get_nsrdb_temperature_error(info['Latitude'],info['Lo
 
 # Calculate weather data safety factor using module Voc temperature coefficient
 Beta_Voco_fraction = np.abs(module['Bvoco'])/module['Voco']
-weather_data_safety_factor = temperature_error*Beta_Voco_fraction
+weather_data_safety_factor = np.max([0, temperature_error*Beta_Voco_fraction])
 
 # Calculate propensity for extreme temperature fluctuations.
 extreme_cold_delta_T = vocmax.calculate_mean_yearly_min_temp(df.index,df['temp_air']) - df['temp_air'].min()
