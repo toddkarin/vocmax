@@ -655,7 +655,8 @@ def ashrae_get_design_conditions(filename='2017DesignConditions_s.xlsx'):
 
 def simulate_system(weather, info, module_parameters,
                     racking_parameters, thermal_model,
-                    irrad_model='perez'
+                    irrad_model='perez',
+                    nighttime_irradiance_addition=0
                     ):
     """
 
@@ -1016,7 +1017,7 @@ def simulate_system(weather, info, module_parameters,
         albedo=racking_parameters['albedo'])
 
     # Add a small irradiance during night time
-    nighttime_irradiance_addition = 0
+
 
     for k in total_irrad.keys():
         total_irrad[k][np.isnan(total_irrad[k])] = 0
@@ -2290,6 +2291,14 @@ def cec_to_sapm(module,reference_irradiance=1000,reference_temperature=25):
     if np.abs((sapm['Bvoco'] - module['beta_oc']) / sapm['Bvoco']) > 0.25:
         warnings.warn('Inconsistency found in Bvoco, suggest to check datasheet. ')
     sapm['Bvoco'] = module['beta_oc']
+
+
+    sapm['Voco'] = module['V_oc_ref']
+    sapm['Isco'] = module['I_sc_ref']
+    sapm['Impo'] = module['I_mp_ref']
+    sapm['Vmpo'] = module['V_mp_ref']
+
+
 
     # Note that
     alpha_sc_Amp_per_C =  module['alpha_sc']
