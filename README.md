@@ -33,7 +33,7 @@ This package depends on the following packages:
 The following code runs a standard string size calculation. This file is saved in the repository as 'example_vocmax_calculation.py'.
 
 
-```
+```python
 """
 This script shows an example calculation for calculating the maximum
 string length allowed in a particular location.
@@ -450,7 +450,7 @@ weather, info = vocmax.get_weather_data(lat,lon,api_key=api_key)
 Another possibility is to download data directly from the NSRDB map viewer.
 
 
-## Get safety factor
+## Get NSRDB safety factor
 The safety factor to use depends on location, here is how to look it up.
 ```python
 import vocmax
@@ -467,7 +467,21 @@ temperature_coefficient_of_voc = 0.0035
 # Find the safety factor
 safety_factor = temperature_error*temperature_coefficient_of_voc
 
-print('Safety Factor for weather data: {:.2%}'.format(safety_factor))
+print('Safety Factor for NSRDB weather data: {:.2%}'.format(safety_factor))
+```
+
+## Load ASHRAE data
+
+Due to copyright, the ASHRAE design conditions filemust be purchased separately, directly from ASHRAE. 
+The weather data viewer DVD, version 6.0 is available at: https://www.techstreet.com/ashrae/standards/weather-data-viewer-dvd-version-6-0?ashrae_auth_token=12ce7b1d-2e2e-472b-b689-8065208f2e36&product_id=1949790
+
+Within this DVD is a file titled "2017DesignConditions_s.xlsx" One way to load this file is to place it in the current directory. 
+
+An exmaple of loading the ASHRAE dataset is
+
+```python
+import vocmax
+ashrae = vocmax.ashrae_get_design_conditions()
 ```
 
 
