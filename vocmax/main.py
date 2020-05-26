@@ -1040,20 +1040,33 @@ def simulate_system(weather, info, module_parameters,
     if (not 'named_model' in thermal_model) or thermal_model['named_model'] == 'explicit':
         thermal_model_params = {k: thermal_model[k] for k in ['a','b','deltaT']}
     else:
-        thermal_model_params = thermal_model['named_model']
+        temperature_model_parameters = pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']
+        print(temperature_model_parameters)
+        thermal_model_params = temperature_model_parameters[thermal_model['named_model']]
 
-    temps = pvlib.pvsystem.sapm_celltemp(total_irrad['poa_global'],
-                                         weather['wind_speed'],
-                                         weather['temp_air'],
-                                         thermal_model_params)
+
+    print(thermal_model_params)
+
+    temperature_cell = pvlib.temperature.sapm_cell(poa_global=total_irrad['poa_global'],
+                                        temp_air=weather['temp_air'],
+                                        wind_speed=weather['wind_speed'],
+                                        a=thermal_model_params['a'],
+                                        b=thermal_model_params['b'],
+                                        deltaT=thermal_model_params['deltaT'])
+
+
+    # temps = pvlib.temperature.sapm_cell(total_irrad['poa_global'],
+    #                                      weather['wind_speed'],
+    #                                      weather['temp_air'],
+    #                                      thermal_model_params)
 
     # if thermal_model['thermal_mass']:
     #     thermal_alpha = np.exp(-(info['interval_in_hours'] * 60) / 270)
     #
 
     if thermal_model['open_circuit_rise']:
-        temps['temp_cell'] = weather['temp_air'] + \
-                (temps['temp_cell'] - weather['temp_air'])/( 1-module_parameters['efficiency'])
+        temperature_cell = weather['temp_air'] + \
+                (temperature_cell - weather['temp_air'])/( 1-module_parameters['efficiency'])
 
 
     # Spectral loss is typically very small on order of a few percent, assume no
@@ -1069,9 +1082,7 @@ def simulate_system(weather, info, module_parameters,
     if module_parameters['aoi_model'] == 'no_loss':
         aoi_loss = 1
     elif module_parameters['aoi_model'] == 'ashrae':
-        aoi_loss = pvlib.pvsystem.ashraeiam(aoi,
-                                            b=module_parameters[
-                                                'ashrae_iam_param'])
+        aoi_loss = pvlib.iam.ashrae(aoi,b=module_parameters['ashrae_iam_param'])
     else:
         raise Exception('aoi_model must be ashrae or no_loss')
 
@@ -1154,13 +1165,13 @@ def simulate_system(weather, info, module_parameters,
 
 
 
-    v_oc = sapm_voc(effective_irradiance, temps['temp_cell'],
+    v_oc = sapm_voc(effective_irradiance, temperature_cell,
                     module_parameters)
 
 
     df['aoi'] = aoi
     # df['aoi_loss'] = aoi_loss
-    df['temp_cell'] = temps['temp_cell']
+    df['temp_cell'] = temperature_cell
     df['temp_air'] = weather['temp_air']
     df['effective_irradiance'] = effective_irradiance
     df['v_oc'] = v_oc
