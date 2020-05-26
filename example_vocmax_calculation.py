@@ -28,7 +28,8 @@ import time
 
 # Option 1. If the module is in the CEC database, then can retreive parameters.
 cec_modules = vocmax.cec_modules
-cec_parameters = cec_modules['Jinko_Solar_JKM295PP_72'].to_dict()
+module_of_choice = cec_modules.keys()[0]
+cec_parameters = cec_modules[module_of_choice].to_dict()
 # Create SAPM parameters from CEC parameters.
 sapm_parameters = vocmax.cec_to_sapm(cec_parameters)
 # Calculate extra module parameters for your information:
@@ -178,7 +179,7 @@ racking_parameters = {
 # Model. Sand2004-3535 (2004).
 
 thermal_model = {
-    'named_model': 'open_rack_cell_glassback',
+    'named_model': 'open_rack_glass_polymer',
     # Temperature of open circuit modules is higher, specify whether to include
     # this effect.
     'open_circuit_rise': True
@@ -317,7 +318,7 @@ if is_cec_module:
 # Plot results
 # ------------------------------------------------------------------------------
 
-pd.plotting.register_matplotlib_converters(explicit=True)
+pd.plotting.register_matplotlib_converters()
 fig_width = 6
 fig_height = 4
 
@@ -375,7 +376,7 @@ plt.plot(df.loc[cax,'effective_irradiance'], df.loc[cax,'temp_cell'],'.',
          label='Voc>P99.9')
 plt.xlabel('POA Irradiance (W/m^2)')
 plt.ylabel('Cell Temperature (C)')
-plt.legend()
+plt.legend(loc='upper left')
 # plt.xlim([0,1000])
 plt.show()
 
