@@ -17,8 +17,6 @@ def make_lat_long_grid(lat_lims=[-124,-66], lon_lims=[25, 47], lat_step=1, lon_s
     Make a lat/long grid pairs for the coordinates specified. Note that the
     end limit point is typically not included in the resultant grid.
 
-
-
     Example
         Make a latitude longitude grid:
 
