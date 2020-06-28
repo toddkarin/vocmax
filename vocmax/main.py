@@ -341,8 +341,7 @@ def get_weather_data(lat,lon,
     dni = np.array(df['DNI'].astype(np.int16))
     dhi = np.array(df['DHI'].astype(np.int16))
     ghi = np.array(df['GHI'].astype(np.int16))
-
-    temp_air = np.array(df['Temperature'].astype(np.int8))
+    temp_air = np.array(df['Temperature'].astype(np.float16))
     wind_speed = np.array(df['Wind Speed'].astype(np.float16))
 
     year = np.array(df['Year'].astype(np.int16))
