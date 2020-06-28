@@ -110,14 +110,14 @@ def get_weather_data(lat,lon,
                      attributes='ghi,dhi,dni,wind_speed,air_temperature',
                      force_download=False,
                      your_name='PV Researcher',
-                     your_email='researcher.email@gmail.com',
-                     reason_for_use='String Length Design',
-                     your_affiliation='Solar Company X',
+                     your_email='researcheremail@gmail.com',
+                     reason_for_use='String+Length+Design',
+                     your_affiliation='Solar+Company+X',
                      join_mailing_list=False,
                      use_utc=False,
                      include_leap_year=True,
                      years=np.arange(1998,2018.5),
-                     interval='30'
+                     interval='30',
                      ):
     """
 
@@ -167,7 +167,7 @@ def get_weather_data(lat,lon,
         dni,wind_speed,air_temperature'
 
     force_download : bool
-        If truem, force downloading of weather data regardless of weather
+        If true, force downloading of weather data regardless of weather
         that particular location has already been downloaded. Default is false.
 
     your_name : str
@@ -282,7 +282,8 @@ def get_weather_data(lat,lon,
     # Pull data from NSRDB because either force_download=True or no cached datafile found.
     print('Downloading weather data...')
     for j in tqdm.tqdm(range(len(years))):
-        year = str(years[j])
+        year = '{:.0f}'.format(years[j])
+
         # Declare url string
         url = 'http://developer.nrel.gov/api/solar/nsrdb_psm3_download.csv?wkt=POINT({lon}%20{lat})&names={year}&leap_day={leap}&interval={interval}&utc={utc}&full_name={name}&email={email}&affiliation={affiliation}&mailing_list={mailing_list}&reason={reason}&api_key={api}&attributes={attr}'.format(
             year=year, lat=lat, lon=lon, leap=leap_year, interval=interval,
