@@ -341,7 +341,7 @@ def get_weather_data(lat,lon,
     dni = np.array(df['DNI'].astype(np.int16))
     dhi = np.array(df['DHI'].astype(np.int16))
     ghi = np.array(df['GHI'].astype(np.int16))
-    temp_air = np.array(df['Temperature'].astype(np.float16))
+    temp_air = np.array(df['Temperature'].astype(np.float32))
     wind_speed = np.array(df['Wind Speed'].astype(np.float16))
 
     year = np.array(df['Year'].astype(np.int16))
@@ -1124,7 +1124,7 @@ def simulate_system(weather, info, module_parameters,
 
         elif racking_parameters['bifacial_model'] =='pvfactors':
 
-            effective_irradiance_front, effective_irradiance_back = pvlib.bifacial.pvfactors_timeseries(
+            total_inc_front, total_inc_back, poa_front_absorbed, poa_back_absorbed = pvlib.bifacial.pvfactors_timeseries(
                 solar_position['azimuth'], solar_position['zenith'], surface_azimuth,
                 surface_tilt,
                 racking_parameters['axis_azimuth'],
@@ -1139,11 +1139,12 @@ def simulate_system(weather, info, module_parameters,
                 rho_front_pvrow=racking_parameters['rho_front_pvrow'],
                 rho_back_pvrow=racking_parameters['rho_back_pvrow'],
                 horizon_band_angle=racking_parameters['horizon_band_angle'],
-                run_parallel_calculations=racking_parameters['run_parallel_calculations'],
-                n_workers_for_parallel_calcs=racking_parameters['n_workers_for_parallel_calcs'])
+                # run_parallel_calculations=racking_parameters['run_parallel_calculations'],
+                # n_workers_for_parallel_calcs=racking_parameters['n_workers_for_parallel_calcs']
+            )
 
-            effective_irradiance_front = np.nan_to_num(effective_irradiance_front)
-            effective_irradiance_back = np.nan_to_num(effective_irradiance_back)
+            effective_irradiance_front = np.nan_to_num(poa_front_absorbed)
+            effective_irradiance_back = np.nan_to_num(poa_back_absorbed)
 
             effective_irradiance = effective_irradiance_front + effective_irradiance_back
 
@@ -2435,7 +2436,7 @@ def get_temp_irradiance_for_voc_percentile(df, percentile=99.5, cushion=0.0025):
         Lowest
     """
 
-    Pvoc = np.percentile(np.array(df['v_oc']), percentile,interpolation='nearest')
+    Pvoc = np.nanpercentile(np.array(df['v_oc']), percentile,interpolation='nearest')
     df_close = df[df['v_oc'] > Pvoc * (1 - cushion)]
     df_close = df_close[df_close['v_oc'] < Pvoc * (1 + cushion)]
 
