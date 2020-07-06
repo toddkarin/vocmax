@@ -167,8 +167,6 @@ racking_parameters = {
     'rho_back_pvrow': 0.03,
     # Horizon band angle.
     'horizon_band_angle': 15,
-    'run_parallel_calculations': True,
-    'n_workers_for_parallel_calcs': -1,
 }
 """
 
