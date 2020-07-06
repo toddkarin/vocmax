@@ -34,6 +34,8 @@ if sys.version_info[0] < 3:
 else:
     from io import StringIO
 
+from vocmax.bifacial import pvfactors_timeseries
+
 import glob
 import vocmax
 
@@ -823,19 +825,6 @@ def simulate_system(weather, info, module_parameters,
             Elevation angle of the sky dome's diffuse horizon band (deg).
             Required if using bifacial_model 'pvfactors'.
 
-        run_parallel_calculations: bool, default True
-
-            pvfactors is capable of using multiprocessing. Use this flag to
-            decide to run calculations in parallel (recommended) or not.
-            Required if using bifacial_model 'pvfactors'.
-
-        n_workers_for_parallel_calcs: int, default None
-
-            Number of workers to use in the case of parallel calculations.
-            The default value of 'None' will lead to using a value equal to
-            the number of CPU's on the machine running the model. Required if
-            using bifacial_model 'pvfactors'.
-
     thermal_model : dict
 
         named_model : string
@@ -1124,7 +1113,7 @@ def simulate_system(weather, info, module_parameters,
 
         elif racking_parameters['bifacial_model'] =='pvfactors':
 
-            total_inc_front, total_inc_back, poa_front_absorbed, poa_back_absorbed = pvlib.bifacial.pvfactors_timeseries(
+            total_inc_front, total_inc_back, poa_front_absorbed, poa_back_absorbed = pvfactors_timeseries(
                 solar_position['azimuth'], solar_position['zenith'], surface_azimuth,
                 surface_tilt,
                 racking_parameters['axis_azimuth'],
