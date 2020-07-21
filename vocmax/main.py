@@ -105,8 +105,7 @@ explain = {
 }
 
 
-
-def get_weather_data(lat,lon,
+def get_weather_data(lat, lon,
                      api_key,
                      cache_directory='cached_weather_data',
                      attributes='ghi,dhi,dni,wind_speed,air_temperature',
@@ -118,7 +117,7 @@ def get_weather_data(lat,lon,
                      join_mailing_list=False,
                      use_utc=False,
                      include_leap_year=True,
-                     years=np.arange(1998,2018.5),
+                     years=np.arange(1998, 2018.5),
                      interval='30',
                      ):
     """
@@ -229,11 +228,10 @@ def get_weather_data(lat,lon,
 
     """
 
-
     # Parse input
-    your_name = your_name.replace(' ','+')
-    reason_for_use = reason_for_use.replace(' ','+')
-    your_affiliation = your_affiliation.replace(' ','+')
+    your_name = your_name.replace(' ', '+')
+    reason_for_use = reason_for_use.replace(' ', '+')
+    your_affiliation = your_affiliation.replace(' ', '+')
 
     if join_mailing_list:
         mailing_list = 'true'
@@ -250,7 +248,6 @@ def get_weather_data(lat,lon,
     else:
         leap_year = 'false'
 
-
     # First check if data exists in cahce directory.
     if not force_download:
         search_str = os.path.join(cache_directory,
@@ -258,19 +255,20 @@ def get_weather_data(lat,lon,
         print(search_str)
         # One sample data point is provided with the package so that users don't
         # have to get an api key to try it out.
-        if '{:3.3f}_{:3.3f}'.format(lat, lon)=='37.876_-122.247':
+        if '{:3.3f}_{:3.3f}'.format(lat, lon) == '37.876_-122.247':
             print('getting sample data point')
             dir_path = os.path.dirname(os.path.realpath(__file__))
 
             df, info = nsrdb.get_local_weather_data(
-                os.path.join(dir_path,'123796_37.89_-122.26_search-point_37.876_-122.247.npz')
+                os.path.join(dir_path,
+                             '123796_37.89_-122.26_search-point_37.876_-122.247.npz')
             )
             return df, info
 
         # Otherwise search the cache for a weather data file that has already
         # been downloaded.
         filename = glob.glob(search_str)
-        if len(filename)>0:
+        if len(filename) > 0:
             # Cached weather data found, load it
             df, info = nsrdb.get_local_weather_data(filename[0])
 
@@ -279,7 +277,6 @@ def get_weather_data(lat,lon,
         else:
             # No cached weather data found.
             pass
-
 
     # Pull data from NSRDB because either force_download=True or no cached datafile found.
     print('Downloading weather data...')
@@ -309,7 +306,6 @@ def get_weather_data(lat,lon,
 
             df_iter = pd.read_csv(StringIO(response), skiprows=2)
 
-
             if np.diff(df_iter[0:2].Minute) == 30:
                 interval = '30'
                 info_iter['interval_in_hours'] = 0.5
@@ -336,7 +332,6 @@ def get_weather_data(lat,lon,
             else:
                 df = df.append(df_iter)
 
-
     info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
 
     # Convert to int for lowering file size.
@@ -358,10 +353,10 @@ def get_weather_data(lat,lon,
         os.mkdir(cache_directory)
 
     save_filename = os.path.join(cache_directory,
-                 '{}_{:3.2f}_{:3.2f}_search-point_{:3.3f}_{:3.3f}.npz'.format(
-                        info['Location ID'], info['Latitude'],
-                     info['Longitude'],lat, lon)
-                 )
+                                 '{}_{:3.2f}_{:3.2f}_search-point_{:3.3f}_{:3.3f}.npz'.format(
+                                     info['Location ID'], info['Latitude'],
+                                     info['Longitude'], lat, lon)
+                                 )
 
     np.savez_compressed(save_filename,
                         Source=info['Source'],
@@ -386,20 +381,21 @@ def get_weather_data(lat,lon,
                         hour=hour,
                         minute=minute)
 
-    df.rename(columns={'Year':'year',
-                       'Month':'month',
-                       'Day':'day',
-                       'Hour':'hour',
-                       'Minute':'minute',
-                       'DNI':'dni',
-                        'GHI':'ghi',
-                       'DHI':'dhi',
-                       'Temperature':'temp_air',
-                       'Wind Speed':'wind_speed',
-                       },inplace=True)
+    df.rename(columns={'Year': 'year',
+                       'Month': 'month',
+                       'Day': 'day',
+                       'Hour': 'hour',
+                       'Minute': 'minute',
+                       'DNI': 'dni',
+                       'GHI': 'ghi',
+                       'DHI': 'dhi',
+                       'Temperature': 'temp_air',
+                       'Wind Speed': 'wind_speed',
+                       }, inplace=True)
 
     # TODO: Consider reloading from the file for consistency with future iterations.
     return df, info
+
 
 # def ashrae_get_data():
 #     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -411,7 +407,7 @@ def get_weather_data(lat,lon,
 #     return ashrae
 
 
-def ashrae_get_design_conditions_at_loc(lat,lon, ashrae):
+def ashrae_get_design_conditions_at_loc(lat, lon, ashrae):
     """
 
     Parameters
@@ -462,7 +458,6 @@ def nec_correction_factor(temperature):
     temperature = np.array([temperature])
     f = np.zeros_like(temperature, dtype='float') + 1
 
-
     f[temperature < 25] = 1.02
     f[temperature < 20] = 1.04
     f[temperature < 15] = 1.06
@@ -483,8 +478,7 @@ def nec_correction_factor(temperature):
     return f
 
 
-
-def get_nsrdb_temperature_error(lat,lon,
+def get_nsrdb_temperature_error(lat, lon,
                                 number_of_closest_points=5):
     """
     Find the temperature error for a particular location.
@@ -534,8 +528,6 @@ def get_nsrdb_temperature_error(lat,lon,
 
     """
 
-
-
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     # Load temperature difference data.
@@ -551,11 +543,10 @@ def get_nsrdb_temperature_error(lat,lon,
     closest_idx = distance_sort.index[:number_of_closest_points]
 
     # Calculate temperature difference
-    temperature_difference = df['nsrdb-ashrae Extreme_Annual_Mean_Min_DB'].loc[closest_idx]
+    temperature_difference = df['nsrdb-ashrae Extreme_Annual_Mean_Min_DB'].loc[
+        closest_idx]
 
     return temperature_difference.max()
-
-
 
 
 def ashrae_import_design_conditions(filename='2017DesignConditions_s.xlsx'):
@@ -590,7 +581,6 @@ def ashrae_import_design_conditions(filename='2017DesignConditions_s.xlsx'):
 
     # filename = '2017DesignConditions_s.xlsx'
 
-
     df = pd.read_excel(filename,
                        skiprows=0,
                        sheet_name=0,
@@ -598,7 +588,6 @@ def ashrae_import_design_conditions(filename='2017DesignConditions_s.xlsx'):
                        verbose=False)
 
     filename_out = filename + '.csv'
-
 
     df_out = pd.DataFrame(
         {'Lat': np.array(df['Lat']).flatten(),
@@ -614,11 +603,13 @@ def ashrae_import_design_conditions(filename='2017DesignConditions_s.xlsx'):
                  'Min']).flatten(),
          }
     )
-    df_out.to_csv(filename_out,index=False)
+    df_out.to_csv(filename_out, index=False)
 
     return df_out
 
-def ashrae_is_design_conditions_available(filename='2017DesignConditions_s.xlsx'):
+
+def ashrae_is_design_conditions_available(
+        filename='2017DesignConditions_s.xlsx'):
     return os.path.exists(filename)
 
 
@@ -645,15 +636,19 @@ def ashrae_get_design_conditions(filename='2017DesignConditions_s.xlsx'):
     if os.path.exists(filename + '.csv'):
         df = pd.read_csv(filename + '.csv')
     elif os.path.exists(filename):
-        print("""Importing and compressing ASHRAE design conditions excel file. Future calls will quickly call csv version. """)
+        print(
+            """Importing and compressing ASHRAE design conditions excel file. Future calls will quickly call csv version. """)
         print('Found file: {}'.format(filename))
         print('Expected loading time: 1.0 minute')
 
         df = ashrae_import_design_conditions(filename)
     else:
-        raise Exception("Design conditions file '{}' not found. File must be purchased from ASHRAE and placed in current directory.".format(filename))
+        raise Exception(
+            "Design conditions file '{}' not found. File must be purchased from ASHRAE and placed in current directory.".format(
+                filename))
 
     return df
+
 
 def simulate_system(weather, info, module_parameters,
                     racking_parameters, thermal_model,
@@ -940,8 +935,6 @@ def simulate_system(weather, info, module_parameters,
     location = pvlib.location.Location(latitude=info['Latitude'],
                                        longitude=info['Longitude'])
 
-
-
     # Add module parameters if some aren't specified.
     module_parameters = add_default_module_params(module_parameters)
 
@@ -987,9 +980,7 @@ def simulate_system(weather, info, module_parameters,
     # Extraterrestrial radiation
     dni_extra = pvlib.irradiance.get_extra_radiation(solar_position.index)
 
-
     airmass = location.get_airmass(solar_position=solar_position)
-
 
     # Perez is a good diffuse sky model
     total_irrad = pvlib.irradiance.get_total_irradiance(
@@ -1007,13 +998,9 @@ def simulate_system(weather, info, module_parameters,
 
     # Add a small irradiance during night time
 
-
     for k in total_irrad.keys():
         total_irrad[k][np.isnan(total_irrad[k])] = 0
         total_irrad[k] = total_irrad[k] + nighttime_irradiance_addition
-
-
-
 
     if racking_parameters['racking_type'] == 'fixed_tilt':
         aoi = pvlib.irradiance.aoi(surface_tilt, surface_azimuth,
@@ -1025,24 +1012,26 @@ def simulate_system(weather, info, module_parameters,
         raise Exception('Racking type not understood')
         # aoi = single_axis_vals['aoi']
 
-
-    if (not 'named_model' in thermal_model) or thermal_model['named_model'] == 'explicit':
-        thermal_model_params = {k: thermal_model[k] for k in ['a','b','deltaT']}
+    if (not 'named_model' in thermal_model) or thermal_model[
+        'named_model'] == 'explicit':
+        thermal_model_params = {k: thermal_model[k] for k in
+                                ['a', 'b', 'deltaT']}
     else:
-        temperature_model_parameters = pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']
+        temperature_model_parameters = \
+        pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']
         print(temperature_model_parameters)
-        thermal_model_params = temperature_model_parameters[thermal_model['named_model']]
-
+        thermal_model_params = temperature_model_parameters[
+            thermal_model['named_model']]
 
     print(thermal_model_params)
 
-    temperature_cell = pvlib.temperature.sapm_cell(poa_global=total_irrad['poa_global'],
-                                        temp_air=weather['temp_air'],
-                                        wind_speed=weather['wind_speed'],
-                                        a=thermal_model_params['a'],
-                                        b=thermal_model_params['b'],
-                                        deltaT=thermal_model_params['deltaT'])
-
+    temperature_cell = pvlib.temperature.sapm_cell(
+        poa_global=total_irrad['poa_global'],
+        temp_air=weather['temp_air'],
+        wind_speed=weather['wind_speed'],
+        a=thermal_model_params['a'],
+        b=thermal_model_params['b'],
+        deltaT=thermal_model_params['deltaT'])
 
     # temps = pvlib.temperature.sapm_cell(total_irrad['poa_global'],
     #                                      weather['wind_speed'],
@@ -1055,8 +1044,8 @@ def simulate_system(weather, info, module_parameters,
 
     if thermal_model['open_circuit_rise']:
         temperature_cell = weather['temp_air'] + \
-                (temperature_cell - weather['temp_air'])/( 1-module_parameters['efficiency'])
-
+                           (temperature_cell - weather['temp_air']) / (
+                                       1 - module_parameters['efficiency'])
 
     # Spectral loss is typically very small on order of a few percent, assume no
     # spectral loss for simplicity
@@ -1071,26 +1060,22 @@ def simulate_system(weather, info, module_parameters,
     if module_parameters['aoi_model'] == 'no_loss':
         aoi_loss = 1
     elif module_parameters['aoi_model'] == 'ashrae':
-        aoi_loss = pvlib.iam.ashrae(aoi,b=module_parameters['ashrae_iam_param'])
+        aoi_loss = pvlib.iam.ashrae(aoi,
+                                    b=module_parameters['ashrae_iam_param'])
     else:
         raise Exception('aoi_model must be ashrae or no_loss')
 
     # Calculate effective irradiance.
 
-
-
     if ('is_bifacial' in module_parameters) and \
-        (module_parameters['is_bifacial']==True):
+            (module_parameters['is_bifacial'] == True):
         if not 'bifacial_model' in racking_parameters:
             warnings.warn("""'bifacial_model' in racking_parameters is not 
             specified, can be 'simple' or 'pvfactors'. Defaulting to 
             'simple'.""")
-            racking_parameters['bifacial_model']='proportional'
+            racking_parameters['bifacial_model'] = 'proportional'
 
-
-
-        if racking_parameters['bifacial_model']=='proportional':
-
+        if racking_parameters['bifacial_model'] == 'proportional':
 
             effective_irradiance_front = calculate_effective_irradiance(
                 total_irrad['poa_direct'],
@@ -1102,19 +1087,23 @@ def simulate_system(weather, info, module_parameters,
             if not 'backside_irradiance_fraction' in racking_parameters:
                 raise Exception("""Must specify 'backside_irradiance_fraction' in 
                 racking_parameters for bifacial modeling. """
-                            )
+                                )
 
-            effective_irradiance_back = effective_irradiance_front*racking_parameters['backside_irradiance_fraction']*module_parameters['bifaciality_factor']
+            effective_irradiance_back = effective_irradiance_front * \
+                                        racking_parameters[
+                                            'backside_irradiance_fraction'] * \
+                                        module_parameters['bifaciality_factor']
 
             effective_irradiance = effective_irradiance_front + effective_irradiance_back
             df['effective_irradiance_front'] = effective_irradiance_front
             df['effective_irradiance_back'] = effective_irradiance_back
 
 
-        elif racking_parameters['bifacial_model'] =='pvfactors':
+        elif racking_parameters['bifacial_model'] == 'pvfactors':
 
             total_inc_front, total_inc_back, poa_front_absorbed, poa_back_absorbed = pvfactors_timeseries(
-                solar_position['azimuth'], solar_position['zenith'], surface_azimuth,
+                solar_position['azimuth'], solar_position['zenith'],
+                surface_azimuth,
                 surface_tilt,
                 racking_parameters['axis_azimuth'],
                 weather.index, weather['dni'], weather['dhi'],
@@ -1140,7 +1129,8 @@ def simulate_system(weather, info, module_parameters,
             df['effective_irradiance_front'] = effective_irradiance_front
             df['effective_irradiance_back'] = effective_irradiance_back
         else:
-            raise Exception("racking_parameters['bifacial_model'] must be either 'proportional' or 'pvfactors'. ")
+            raise Exception(
+                "racking_parameters['bifacial_model'] must be either 'proportional' or 'pvfactors'. ")
 
 
     else:
@@ -1152,12 +1142,8 @@ def simulate_system(weather, info, module_parameters,
             FD=module_parameters['FD']
         )
 
-
-
-
     v_oc = sapm_voc(effective_irradiance, temperature_cell,
                     module_parameters)
-
 
     df['aoi'] = aoi
     # df['aoi_loss'] = aoi_loss
@@ -1172,6 +1158,7 @@ def simulate_system(weather, info, module_parameters,
     df['poa_direct'] = total_irrad['poa_direct']
     df['poa_diffuse'] = total_irrad['poa_diffuse']
     return df
+
 
 #
 # def pvfactors_timeseries(
@@ -1525,7 +1512,8 @@ def make_voc_summary(df, info, module_parameters,
     """
 
     voc_summary = pd.DataFrame(
-        columns=['Conditions', 'max_module_voltage', 'string_design_voltage', 'safety_factor',
+        columns=['Conditions', 'max_module_voltage', 'string_design_voltage',
+                 'safety_factor',
                  'string_length',
                  'Cell Temperature', 'POA Irradiance', 'long_note'],
         index=['690.7(A)(3)-P99.5',
@@ -1548,12 +1536,12 @@ def make_voc_summary(df, info, module_parameters,
 
         if ashrae_available:
             ashrae = ashrae_get_design_conditions()
-            ashrae_loc = vocmax.ashrae_get_design_conditions_at_loc(info['Latitude'], info['Longitude'],ashrae)
-            lowest_expected_temperature_ashrae = ashrae_loc['Extreme_Annual_Mean_Min_DB']
+            ashrae_loc = vocmax.ashrae_get_design_conditions_at_loc(
+                info['Latitude'], info['Longitude'], ashrae)
+            lowest_expected_temperature_ashrae = ashrae_loc[
+                'Extreme_Annual_Mean_Min_DB']
         else:
             lowest_expected_temperature_ashrae = np.nan
-
-
 
     # mean_yearly_min_temp_ashrae =
     mean_yearly_min_day_temp = calculate_mean_yearly_min_temp(
@@ -1562,20 +1550,21 @@ def make_voc_summary(df, info, module_parameters,
 
     voc_summary['safety_factor'] = 0
     for f in ['690.7(A)(3)-P99.5', '690.7(A)(3)-P100']:
-        voc_summary.loc[f,'safety_factor'] = safety_factor
-
-
+        voc_summary.loc[f, 'safety_factor'] = safety_factor
 
     # Calculate some standard voc values.
     voc_values = {
         '690.7(A)(3)-P99.5': np.percentile(np.array(df['v_oc']), 99.5),
         '690.7(A)(3)-P100': df['v_oc'].max(),
         '690.7(A)(1)-DAY': calculate_voc(1000, mean_yearly_min_day_temp,
-                             module_parameters),
-        '690.7(A)(1)-ASHRAE': calculate_voc(1000, lowest_expected_temperature_ashrae,module_parameters),
+                                         module_parameters),
+        '690.7(A)(1)-ASHRAE': calculate_voc(1000,
+                                            lowest_expected_temperature_ashrae,
+                                            module_parameters),
         '690.7(A)(1)-NSRDB': calculate_voc(1000, mean_yearly_min_temp,
                                            module_parameters),
-        '690.7(A)(2)-ASHRAE': module_parameters['Voco']*nec_correction_factor(lowest_expected_temperature_ashrae),
+        '690.7(A)(2)-ASHRAE': module_parameters['Voco'] * nec_correction_factor(
+            lowest_expected_temperature_ashrae),
 
     }
     conditions = {
@@ -1618,53 +1607,68 @@ def make_voc_summary(df, info, module_parameters,
     voc_summary['string_length'] = voc_summary['max_module_voltage'].map(
         lambda x: voc_to_string_length(x, string_design_voltage, safety_factor))
 
-    max_module_voltage_with_safety_factor = voc_summary['max_module_voltage']*(1+ voc_summary['safety_factor'])
-
+    max_module_voltage_with_safety_factor = voc_summary[
+                                                'max_module_voltage'] * (
+                                                        1 + voc_summary[
+                                                    'safety_factor'])
 
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
     long_note = {
         '690.7(A)(3)-P99.5': "99.5 Percentile Voc<br>" + \
-                 "690.7(A)(3)-P99.5: {:.3f} V<br>".format(voc_values['690.7(A)(3)-P99.5']) + \
-                 "690.7(A)(3)-P99.5 + {:1.1%} SF: {:.3f} V<br>".format(
-                     voc_summary['safety_factor']['690.7(A)(3)-P99.5'],
-                     max_module_voltage_with_safety_factor['690.7(A)(3)-P99.5']) + \
-                 "Maximum String Length: {:.0f}<br>".format(
-                    voc_summary['string_length']['690.7(A)(3)-P99.5']) + \
-                 "Recommended 690.7(A)(3) value for string length.",
+                             "690.7(A)(3)-P99.5: {:.3f} V<br>".format(
+                                 voc_values['690.7(A)(3)-P99.5']) + \
+                             "690.7(A)(3)-P99.5 + {:1.1%} SF: {:.3f} V<br>".format(
+                                 voc_summary['safety_factor'][
+                                     '690.7(A)(3)-P99.5'],
+                                 max_module_voltage_with_safety_factor[
+                                     '690.7(A)(3)-P99.5']) + \
+                             "Maximum String Length: {:.0f}<br>".format(
+                                 voc_summary['string_length'][
+                                     '690.7(A)(3)-P99.5']) + \
+                             "Recommended 690.7(A)(3) value for string length.",
 
         '690.7(A)(3)-P100': 'Historical maximum Voc from {:.0f}-{:.0f}<br>'.format(
             df['year'][0], df['year'][-1]) + \
-                '690.7(A)(3)-P100: {:.3f}<br>'.format(voc_values['690.7(A)(3)-P100']) + \
-                "690.7(A)(3)-P100 + {:1.1%} SF: {:.3f} V<br>".format(
-                    voc_summary['safety_factor']['690.7(A)(3)-P100'],
-                    max_module_voltage_with_safety_factor['690.7(A)(3)-P100']) + \
-                'Maximum String Length: {:.0f}<br>'.format(
-                    voc_summary['string_length']['690.7(A)(3)-P100']) + \
-                'Conservative 690.7(A)(3) value for string length.',
+                            '690.7(A)(3)-P100: {:.3f}<br>'.format(
+                                voc_values['690.7(A)(3)-P100']) + \
+                            "690.7(A)(3)-P100 + {:1.1%} SF: {:.3f} V<br>".format(
+                                voc_summary['safety_factor'][
+                                    '690.7(A)(3)-P100'],
+                                max_module_voltage_with_safety_factor[
+                                    '690.7(A)(3)-P100']) + \
+                            'Maximum String Length: {:.0f}<br>'.format(
+                                voc_summary['string_length'][
+                                    '690.7(A)(3)-P100']) + \
+                            'Conservative 690.7(A)(3) value for string length.',
 
         '690.7(A)(1)-DAY': 'Traditional daytime Voc, using 1 sun irradiance and<br>' + \
-               'mean yearly minimum daytime (GHI>150 W/m^2) dry bulb temperature of {:.1f} C.<br>'.format(
-                   mean_yearly_min_day_temp) + \
-               'Day Voc: {:.3f} V<br>'.format(voc_values['690.7(A)(1)-DAY']) + \
-               'Maximum String Length:{:.0f}<br>'.format(
-                   voc_summary['string_length']['690.7(A)(1)-DAY']) + \
-               'Recommended 690.7(A)(1) Value',
+                           'mean yearly minimum daytime (GHI>150 W/m^2) dry bulb temperature of {:.1f} C.<br>'.format(
+                               mean_yearly_min_day_temp) + \
+                           'Day Voc: {:.3f} V<br>'.format(
+                               voc_values['690.7(A)(1)-DAY']) + \
+                           'Maximum String Length:{:.0f}<br>'.format(
+                               voc_summary['string_length'][
+                                   '690.7(A)(1)-DAY']) + \
+                           'Recommended 690.7(A)(1) Value',
 
         '690.7(A)(1)-NSRDB': 'Traditional 690.7(A)(1) value, using 1 sun irradiance and<br>' + \
-                'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
-                    mean_yearly_min_temp) + \
-                '690.7(A)(1)-NSRDB: {:.3f}<br>'.format(voc_values['690.7(A)(1)-NSRDB']) + \
-                'Maximum String Length: {:.0f}'.format(
-                    voc_summary['string_length']['690.7(A)(1)-NSRDB']),
+                             'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
+                                 mean_yearly_min_temp) + \
+                             '690.7(A)(1)-NSRDB: {:.3f}<br>'.format(
+                                 voc_values['690.7(A)(1)-NSRDB']) + \
+                             'Maximum String Length: {:.0f}'.format(
+                                 voc_summary['string_length'][
+                                     '690.7(A)(1)-NSRDB']),
         '690.7(A)(1)-ASHRAE': 'Traditional 690.7(A)(1) value<br>' + \
-                               'using 1 sun irradiance and<br>' + \
+                              'using 1 sun irradiance and<br>' + \
                               'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
                                   lowest_expected_temperature_ashrae) + \
                               'Trad-ASHRAE-690.7a1 Voc: {:.3f}<br>'.format(
                                   voc_values['690.7(A)(1)-ASHRAE']) + \
                               'Maximum String Length: {:.0f}'.format(
-                                  voc_summary['string_length']['690.7(A)(1)-ASHRAE']),
+                                  voc_summary['string_length'][
+                                      '690.7(A)(1)-ASHRAE']),
         '690.7(A)(2)-ASHRAE': 'Traditional 690.7(A)(2) value<br>' + \
                               'using NEC derating table and<br>' + \
                               'mean yearly minimum dry bulb temperature of {:.1f} C.<br>'.format(
@@ -1697,7 +1701,6 @@ def make_voc_summary(df, info, module_parameters,
     voc_summary['short_note'] = voc_summary.index.map(short_note)
 
     return voc_summary
-
 
 
 def get_s3_csv(filename):
@@ -1737,7 +1740,6 @@ def make_voc_histogram(df, info, number_bins=400):
     voc_hist_x = voc_hist_x_raw[1:-1]
 
     return voc_hist_x, voc_hist_y
-
 
 
 def make_simulation_summary(df, info, module_parameters, racking_parameters,
@@ -2020,6 +2022,15 @@ def sapm_voc(effective_irradiance, temp_cell, module, reference_temperature=25,
     temp_cell : numeric
 
     module : dict
+        parameters are:
+
+        'Voco'
+
+        'cells_in_series'
+
+        'Bvoco'
+
+        'Mbvoc'
 
     reference_temperature : float
 
@@ -2066,6 +2077,64 @@ def sapm_voc(effective_irradiance, temp_cell, module, reference_temperature=25,
     return v_oc
 
 
+def sapm_temperature_to_get_voc(effective_irradiance,
+                                Voc,
+                                Voco,
+                                Bvoco,
+                                diode_factor,
+                                cells_in_series,
+                                Mbvoc=0,
+                                reference_temperature=25,
+                                reference_irradiance=1000
+                                ):
+    """
+
+    Calculate the cell temperature to achieve a certain Voc at a value of
+    effective irradiance.
+
+    Parameters
+    ----------
+    effective_irradiance
+    Voc
+    Voco
+    Bvoco
+    diode_factor
+    cells_in_series
+    Mbvoc
+    reference_temperature
+    reference_irradiance
+
+    Returns
+    -------
+
+    """
+
+    T0 = reference_temperature
+    q = 1.60218e-19  # Elementary charge in units of coulombs
+    kb = 1.38066e-23  # Boltzmann's constant in units of J/K
+
+    # avoid problem with integer input
+    Ee = np.array(effective_irradiance, dtype='float64')
+
+    # set up masking for 0, positive, and nan inputs
+    Ee_gt_0 = np.full_like(Ee, False, dtype='bool')
+    Ee_eq_0 = np.full_like(Ee, False, dtype='bool')
+    notnan = ~np.isnan(Ee)
+    np.greater(Ee, 0, where=notnan, out=Ee_gt_0)
+    np.equal(Ee, 0, where=notnan, out=Ee_eq_0)
+
+    # avoid repeated computation
+    logEe = np.full_like(Ee, np.nan)
+    np.log(Ee / reference_irradiance, where=Ee_gt_0, out=logEe)
+    logEe = np.where(Ee_eq_0, -np.inf, logEe)
+
+    Bvoco = Bvoco + Mbvoc * (1 - Ee)
+    delta_ref = diode_factor * kb * (reference_temperature + 273.15) / q
+    delta_prime = diode_factor * kb / q
+
+    temperature_cell = reference_temperature + (Voc - Voco - cells_in_series * delta_ref * logEe) / (
+                cells_in_series * delta_prime * logEe + Bvoco)
+    return temperature_cell
 
 
 def sapm_mpp(effective_irradiance, temperature, module_parameters):
@@ -2076,7 +2145,8 @@ def sapm_mpp(effective_irradiance, temperature, module_parameters):
     i_mp, v_mp, p_mp = pvlib.singlediode.bishop88_mpp(photocurrent,
                                                       saturation_current,
                                                       resistance_series,
-                 resistance_shunt, nNsVth, method='newton')
+                                                      resistance_shunt, nNsVth,
+                                                      method='newton')
 
     return i_mp, v_mp, p_mp
 
@@ -2087,7 +2157,7 @@ def calcparams_singlediode(effective_irradiance, temperature,
     if not 'iv_model' in module_parameters.keys():
         module_parameters['iv_model'] = 'desoto'
 
-    if module_parameters['iv_model']=='sapm':
+    if module_parameters['iv_model'] == 'sapm':
         module_parameters['iv_model'] = 'desoto'
 
     if module_parameters['iv_model'] == 'desoto':
@@ -2115,7 +2185,8 @@ def calcparams_singlediode(effective_irradiance, temperature,
                                           )
 
     else:
-        raise Exception("module_parameters['iv_model'] must be 'cec' or 'desoto'")
+        raise Exception(
+            "module_parameters['iv_model'] must be 'cec' or 'desoto'")
 
     return photocurrent, saturation_current, resistance_series, resistance_shunt, nNsVth
 
@@ -2182,7 +2253,7 @@ def calculate_sapm_module_parameters(module_parameters,
     Vthref = kB * (273.15 + 25) / q
 
     param['n_diode'] = module_parameters['a_ref'] / (
-                module_parameters['N_s'] * Vthref)
+            module_parameters['N_s'] * Vthref)
 
     # Calculate Voc vs. temperature for finding coefficients
     temp_cell_smooth = np.linspace(reference_temperature - 5,
@@ -2224,8 +2295,6 @@ def calculate_sapm_module_parameters(module_parameters,
     pmp_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['p_mp'], 1)
     param['Bpmpo'] = pmp_fit_coeff[0]
 
-
-
     isc_fit_coeff = np.polyfit(temp_cell_smooth, iv_points['i_sc'], 1)
     param['alpha_sc'] = isc_fit_coeff[0]
 
@@ -2259,7 +2328,8 @@ def calculate_sapm_module_parameters(module_parameters,
 
     return param
 
-def cec_to_sapm(module,reference_irradiance=1000,reference_temperature=25):
+
+def cec_to_sapm(module, reference_irradiance=1000, reference_temperature=25):
     """
 
     Parameters
@@ -2285,36 +2355,36 @@ def cec_to_sapm(module,reference_irradiance=1000,reference_temperature=25):
     """
     # Calculate sapm parameters.
     sapm = calculate_sapm_module_parameters(module,
-                                     reference_irradiance=reference_irradiance,
-                                     reference_temperature=reference_temperature)
+                                            reference_irradiance=reference_irradiance,
+                                            reference_temperature=reference_temperature)
 
     # Replace certain parameters with those explicitly specified.
     if np.abs((sapm['Bvoco'] - module['beta_oc']) / sapm['Bvoco']) > 0.25:
-        warnings.warn('Inconsistency found in Bvoco, suggest to check datasheet. ')
+        warnings.warn(
+            'Inconsistency found in Bvoco, suggest to check datasheet. ')
     sapm['Bvoco'] = module['beta_oc']
-
 
     sapm['Voco'] = module['V_oc_ref']
     sapm['Isco'] = module['I_sc_ref']
     sapm['Impo'] = module['I_mp_ref']
     sapm['Vmpo'] = module['V_mp_ref']
 
-
-
     # Note that
-    alpha_sc_Amp_per_C =  module['alpha_sc']
-    if np.abs((sapm['alpha_sc'] - alpha_sc_Amp_per_C) / sapm['alpha_sc']) > 0.25:
-        warnings.warn("From Desoto model, find alpha_sc = {:1.3f} A/C, but value in CEC database is {:1.3f} A/C".format(
-                          sapm['alpha_sc'], alpha_sc_Amp_per_C) )
+    alpha_sc_Amp_per_C = module['alpha_sc']
+    if np.abs(
+            (sapm['alpha_sc'] - alpha_sc_Amp_per_C) / sapm['alpha_sc']) > 0.25:
+        warnings.warn(
+            "From Desoto model, find alpha_sc = {:1.3f} A/C, but value in CEC database is {:1.3f} A/C".format(
+                sapm['alpha_sc'], alpha_sc_Amp_per_C))
     sapm['alpha_sc'] = alpha_sc_Amp_per_C
 
-    sapm['Pmpo'] = module['I_mp_ref']*module['V_mp_ref']
-
+    sapm['Pmpo'] = module['I_mp_ref'] * module['V_mp_ref']
 
     sapm['efficiency'] = module['I_mp_ref'] * \
-                          module['V_mp_ref'] / \
-                          module['A_c'] / 1000
+                         module['V_mp_ref'] / \
+                         module['A_c'] / 1000
     return sapm
+
 
 #     raise Warning('Inconsistency found in Bvoco, suggest to check datasheet. ')
 
@@ -2425,7 +2495,8 @@ def get_temp_irradiance_for_voc_percentile(df, percentile=99.5, cushion=0.0025):
         Lowest
     """
 
-    Pvoc = np.nanpercentile(np.array(df['v_oc']), percentile,interpolation='nearest')
+    Pvoc = np.nanpercentile(np.array(df['v_oc']), percentile,
+                            interpolation='nearest')
     df_close = df[df['v_oc'] > Pvoc * (1 - cushion)]
     df_close = df_close[df_close['v_oc'] < Pvoc * (1 + cushion)]
 
@@ -2527,7 +2598,6 @@ def simulate_system_sandia(weather, info, module_parameters=None,
     return (df, mc)
 
 
-
 def import_nsrdb_csv(filename):
     """Import an NSRDB csv file.
 
@@ -2560,21 +2630,20 @@ def import_nsrdb_csv(filename):
     df = pd.read_csv(filename, skiprows=2)
 
     # Set the time index in the pandas dataframe:
-    year=str(df['Year'][0])
-
+    year = str(df['Year'][0])
 
     if np.diff(df[0:2].Minute) == 30:
         interval = '30'
-        info['interval_in_hours']= 0.5
+        info['interval_in_hours'] = 0.5
         df = df.set_index(
-          pd.date_range('1/1/{yr}'.format(yr=year), freq=interval + 'Min',
-                        periods=60*24*365 / int(interval)))
-    elif df['Minute'][1] - df['Minute'][0]==0:
+            pd.date_range('1/1/{yr}'.format(yr=year), freq=interval + 'Min',
+                          periods=60 * 24 * 365 / int(interval)))
+    elif df['Minute'][1] - df['Minute'][0] == 0:
         interval = '60'
         info['interval_in_hours'] = 1
         df = df.set_index(
             pd.date_range('1/1/{yr}'.format(yr=year), freq=interval + 'Min',
-                          periods=60*24*365 / int(interval)))
+                          periods=60 * 24 * 365 / int(interval)))
     else:
         print('Interval not understood!')
 
@@ -2582,6 +2651,7 @@ def import_nsrdb_csv(filename):
         pytz.FixedOffset(float(info['Time Zone'] * 60)))
 
     return (df, info)
+
 
 # df, info = import_csv('nsrdb_1degree_uv/104_30.97_-83.22_tmy.csv')
 
@@ -2607,16 +2677,16 @@ def import_nsrdb_sequence(folder):
     # Get all files.
     files = glob.glob(os.path.join(folder, '*.csv'))
 
-    if len(files)==0:
+    if len(files) == 0:
         raise ValueError('No input files found in directory')
     files.sort()
     df = pd.DataFrame()
     for f in files:
         print(f)
-        (df_temp,info) = import_nsrdb_csv(f)
+        (df_temp, info) = import_nsrdb_csv(f)
 
         df = df.append(df_temp)
 
-    info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days/365
+    info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
 
-    return (df,info)
+    return (df, info)
