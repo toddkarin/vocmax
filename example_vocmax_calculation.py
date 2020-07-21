@@ -372,6 +372,15 @@ plt.plot(df.loc[:,'effective_irradiance'], df.loc[:,'temp_cell'],'.',
          label='all data')
 plt.plot(df.loc[cax,'effective_irradiance'], df.loc[cax,'temp_cell'],'.',
          label='Voc>P99.9')
+poa_smooth = np.linspace(1,1100,200)
+T_smooth = vocmax.sapm_temperature_to_get_voc(poa_smooth,
+                                              np.percentile(df['v_oc'],99.9),
+                                              Voco=module['Voco'],
+                                              Bvoco=module['Bvoco'],
+                                              diode_factor=module['n_diode'],
+                                              cells_in_series=module[
+                                                  'cells_in_series'])
+plt.plot(poa_smooth, T_smooth)
 plt.xlabel('POA Irradiance (W/m^2)')
 plt.ylabel('Cell Temperature (C)')
 plt.legend(loc='upper left')
