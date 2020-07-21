@@ -1019,11 +1019,11 @@ def simulate_system(weather, info, module_parameters,
     else:
         temperature_model_parameters = \
         pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']
-        print(temperature_model_parameters)
+
         thermal_model_params = temperature_model_parameters[
             thermal_model['named_model']]
 
-    print(thermal_model_params)
+
 
     temperature_cell = pvlib.temperature.sapm_cell(
         poa_global=total_irrad['poa_global'],
