@@ -1794,7 +1794,7 @@ def make_simulation_summary(df, info, module_parameters, racking_parameters,
         'model type, Sandia\n' + \
         pd.Series(thermal_model).to_csv(header=False) + '\n' + \
         'String Design Voltage,' + str(string_design_voltage) + '\n' + \
-        'vocmaxlib Version,' + __version__ + '\n' + \
+        'vocmaxlib Version,' + vocmax.__version__ + '\n' + \
         '\nKey Voc Values\n' + \
         voc_summary.to_csv() + \
         '\nVoc Histogram\n' + \
