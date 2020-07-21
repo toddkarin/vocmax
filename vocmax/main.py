@@ -46,7 +46,7 @@ import vocmax
 
 cec_modules = pvlib.pvsystem.retrieve_sam('CeCMod')
 
-__version__ = '0.0.18'
+__version__ = '0.0.19'
 
 # Descriptions of hte various parameters used in the calculation.
 explain = {
