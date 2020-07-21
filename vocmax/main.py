@@ -41,12 +41,10 @@ import vocmax
 
 # from pvlib.bifacial import PVFactorsReportBuilder as PVFactorsReportBuilder
 
-
 # Parameters entering into Voc calculation:
 
-cec_modules = pvlib.pvsystem.retrieve_sam('CeCMod')
 
-__version__ = '0.0.19'
+cec_modules = pvlib.pvsystem.retrieve_sam('CeCMod')
 
 # Descriptions of hte various parameters used in the calculation.
 explain = {
