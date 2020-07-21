@@ -46,7 +46,7 @@ import vocmax
 
 cec_modules = pvlib.pvsystem.retrieve_sam('CeCMod')
 
-vocmaxlib_version = '0.0.17'
+__version__ = '0.0.17'
 
 # Descriptions of hte various parameters used in the calculation.
 explain = {
@@ -1796,7 +1796,7 @@ def make_simulation_summary(df, info, module_parameters, racking_parameters,
         'model type, Sandia\n' + \
         pd.Series(thermal_model).to_csv(header=False) + '\n' + \
         'String Design Voltage,' + str(string_design_voltage) + '\n' + \
-        'vocmaxlib Version,' + vocmaxlib_version + '\n' + \
+        'vocmaxlib Version,' + __version__ + '\n' + \
         '\nKey Voc Values\n' + \
         voc_summary.to_csv() + \
         '\nVoc Histogram\n' + \
