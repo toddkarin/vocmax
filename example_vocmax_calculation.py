@@ -26,7 +26,7 @@ import time
 # Choose Module Parameters
 # ------------------------------------------------------------------------------
 
-# Option 1. If the module is in the CEC database, then can retreive parameters.
+# Option 1. If the module is in the CEC database, then can retrieve parameters.
 cec_modules = vocmax.cec_modules
 module_of_choice = cec_modules.keys()[0]
 cec_parameters = cec_modules[module_of_choice].to_dict()
