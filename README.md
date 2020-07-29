@@ -35,6 +35,7 @@ The following code runs a standard string size calculation. This file is saved i
 
 ```python
 """
+
 This script shows an example calculation for calculating the maximum
 string length allowed in a particular location.
 
@@ -46,6 +47,7 @@ The method proceeds in the following steps
 - Import weather data
 - Run the calculation
 - Plot.
+
 """
 
 import numpy as np
@@ -60,17 +62,19 @@ import time
 # Choose Module Parameters
 # ------------------------------------------------------------------------------
 
-# Option 1. If the module is in the CEC database, then can retreive parameters.
-"""
+# Option 1. If the module is in the CEC database, then can retrieve parameters.
 cec_modules = vocmax.cec_modules
-cec_parameters = cec_modules['Jinko_Solar_JKM175M_72'].to_dict()
-sapm_parameters = vocmax.calculate_sapm_module_parameters(cec_parameters)
+module_of_choice = cec_modules.keys()[0]
+cec_parameters = cec_modules[module_of_choice].to_dict()
+# Create SAPM parameters from CEC parameters.
+sapm_parameters = vocmax.cec_to_sapm(cec_parameters)
 # Calculate extra module parameters for your information:
 module = {**sapm_parameters, **cec_parameters}
+# AOI loss model controls reflection from glass at non-normal incidence angles.
+# Can be 'ashrae' or 'no_loss'
 module['aoi_model'] = 'ashrae'
 module['ashrae_iam_param'] = 0.05
 module['is_bifacial'] = False
-module['efficiency'] = 0.18
 """
 # Option 2. Or can build a dictionary of parameters manually. Note that in order
 # to calculate MPP, it is necessary to include the CEC parameters: alpha_sc,
@@ -101,7 +105,7 @@ module = {
     # AOI loss model parameter.
     'ashrae_iam_param': 0.05
     }
-
+"""
 
 is_cec_module = 'a_ref' in module
 print('\n** Module parameters **')
@@ -199,8 +203,6 @@ racking_parameters = {
     'rho_back_pvrow': 0.03,
     # Horizon band angle.
     'horizon_band_angle': 15,
-    'run_parallel_calculations': True,
-    'n_workers_for_parallel_calcs': -1,
 }
 """
 
@@ -211,7 +213,7 @@ racking_parameters = {
 # Model. Sand2004-3535 (2004).
 
 thermal_model = {
-    'named_model': 'open_rack_cell_glassback',
+    'named_model': 'open_rack_glass_polymer',
     # Temperature of open circuit modules is higher, specify whether to include
     # this effect.
     'open_circuit_rise': True
@@ -288,15 +290,19 @@ if is_cec_module:
 # Calculate String Size
 # ------------------------------------------------------------------------------
 
-# Get ASHRAE design temperature:
-ashrae = vocmax.ashrae_get_data_at_loc(lat,lon)
+# IMPORTANT: one must add the ASHRAE spreadsheet to this file in order to
+# automatically calucate traditional values using ASHRAE design conditions.
+ashrae_available = vocmax.ashrae_is_design_conditions_available()
+if not ashrae_available:
+    print("""** IMPORTANT ** add the ASHRAE design conditions spreadsheet to this 
+    directory in order to get ASHRAE design.""")
 
 # Look up weather data uncertainty safety factor at the point of interest.
 temperature_error = vocmax.get_nsrdb_temperature_error(info['Latitude'],info['Longitude'])
 
 # Calculate weather data safety factor using module Voc temperature coefficient
 Beta_Voco_fraction = np.abs(module['Bvoco'])/module['Voco']
-weather_data_safety_factor = temperature_error*Beta_Voco_fraction
+weather_data_safety_factor = np.max([0, temperature_error*Beta_Voco_fraction])
 
 # Calculate propensity for extreme temperature fluctuations.
 extreme_cold_delta_T = vocmax.calculate_mean_yearly_min_temp(df.index,df['temp_air']) - df['temp_air'].min()
@@ -346,7 +352,7 @@ if is_cec_module:
 # Plot results
 # ------------------------------------------------------------------------------
 
-pd.plotting.register_matplotlib_converters(explicit=True)
+pd.plotting.register_matplotlib_converters()
 fig_width = 6
 fig_height = 4
 
@@ -354,27 +360,20 @@ max_pos = np.argmax(np.array(df['v_oc']))
 plot_width = 300
 
 # Plot Voc vs. time
-plt.figure(0,figsize=(fig_width,fig_height))
-plt.clf()
-plt.plot(df.index[max_pos-plot_width:max_pos+plot_width],
-         df['v_oc'][max_pos-plot_width:max_pos+plot_width])
-ylims = np.array(plt.ylim())
-plt.plot([ df.index[max_pos],df.index[max_pos]] , ylims)
-plt.ylabel('Voc (V)')
-plt.show()
-
-# Plot Irradiance vs. time
-plt.figure(11,figsize=(fig_width,fig_height))
-plt.clf()
-plt.plot(df.index[max_pos-plot_width:max_pos+plot_width],
-         df['effective_irradiance'][max_pos-plot_width:max_pos+plot_width])
-ylims = np.array(plt.ylim())
-plt.plot([ df.index[max_pos],df.index[max_pos]] , ylims)
-plt.ylabel('POA Irradiance')
-plt.show()
+plot_key = ['v_oc','ghi','effective_irradiance','temp_air']
+plot_ylabel = ['Voc (V)', 'GHI (W/m2)', 'POA Irradiance (W/m2)', 'Air Temperature (C)']
+for j in range(len(plot_key)):
+    plt.figure(j,figsize=(fig_width,fig_height))
+    plt.clf()
+    plt.plot(df.index[max_pos-plot_width:max_pos+plot_width],
+             df[plot_key[j]][max_pos-plot_width:max_pos+plot_width])
+    ylims = np.array(plt.ylim())
+    plt.plot([ df.index[max_pos],df.index[max_pos]] , ylims)
+    plt.ylabel(plot_ylabel[j])
+    plt.show()
 
 # Plot Voc histogram
-plt.figure(1,figsize=(fig_width,fig_height))
+plt.figure(11,figsize=(fig_width,fig_height))
 plt.clf()
 voc_hist_x, voc_hist_y = vocmax.make_voc_histogram(df,info)
 
@@ -383,38 +382,46 @@ plt.xlabel('Voc (Volts)')
 plt.ylabel('hrs/year')
 
 for key in voc_summary.index:
-    plt.plot(voc_summary['max_module_voltage'][key] * np.array([1,1]), [0,10],
+    if ('ASHRAE' in key and ashrae_available) or ('ASHRAE' not in key):
+        plt.plot(voc_summary['max_module_voltage'][key] * np.array([1,1]), [0,10],
              label=key)
+
 plt.show()
 plt.legend()
 
 
 # Plot IV curve
 if is_cec_module:
-    plt.figure(3)
+    plt.figure(12)
     plt.clf()
     for j in range(len(iv_curve)):
         plt.plot(iv_curve[j]['v'], iv_curve[j]['i'])
-
     plt.xlabel('Voltage (V)')
     plt.ylabel('Current (A)')
     plt.grid()
 
 # Scatter plot of Temperature/Irradiance where Voc is highest.
-plt.figure(5)
+plt.figure(13)
 plt.clf()
 cax = df['v_oc']>np.percentile(df['v_oc'],99.9)
 plt.plot(df.loc[:,'effective_irradiance'], df.loc[:,'temp_cell'],'.',
          label='all data')
 plt.plot(df.loc[cax,'effective_irradiance'], df.loc[cax,'temp_cell'],'.',
          label='Voc>P99.9')
+poa_smooth = np.linspace(1,1100,200)
+T_smooth = vocmax.sapm_temperature_to_get_voc(poa_smooth,
+                                              np.percentile(df['v_oc'],99.9),
+                                              Voco=module['Voco'],
+                                              Bvoco=module['Bvoco'],
+                                              diode_factor=module['n_diode'],
+                                              cells_in_series=module[
+                                                  'cells_in_series'])
+plt.plot(poa_smooth, T_smooth)
 plt.xlabel('POA Irradiance (W/m^2)')
 plt.ylabel('Cell Temperature (C)')
-plt.legend()
+plt.legend(loc='upper left')
 # plt.xlim([0,1000])
 plt.show()
-
-
 
 
 ```
