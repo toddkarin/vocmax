@@ -407,6 +407,7 @@ def get_weather_data(lat, lon,
 
 def ashrae_get_design_conditions_at_loc(lat, lon, ashrae):
     """
+    Get the ASHRAE design conditions data closest to the lat/lon of interest.
 
     Parameters
     ----------
