@@ -223,122 +223,123 @@ def get_weather_data(lat, lon,
             # No cached weather data found.
             pass
 
-    else:
-        # Pull data from NSRDB because either force_download=True or no cached datafile found.
-        print('Downloading weather data...')
-        for j in tqdm.tqdm(range(len(years))):
-            year = '{:.0f}'.format(years[j])
 
-            info_iter, df_iter = get_psm3(
-                latitude=lat,
-                longitude=lon,
-                api_key=api_key,
-                email=email,
-                names=year,
-                interval=30,
-                leap_day=False,
-                full_name=full_name,
-                affiliation=affiliation,
-                timeout=30)
-            #
-            # # Declare url string
-            # url = 'http://developer.nrel.gov/api/solar/nsrdb_psm3_download.csv?wkt=POINT({lon}%20{lat})&names={year}&leap_day={leap}&interval={interval}&utc={utc}&full_name={name}&email={email}&affiliation={affiliation}&mailing_list={mailing_list}&reason={reason}&api_key={api}&attributes={attr}'.format(
-            # year = year, lat = lat, lon = lon, leap = leap_year, interval = interval,
-            # utc = utc, name = your_name, email = your_email,
-            # mailing_list = mailing_list, affiliation = your_affiliation,
-            # reason = reason_for_use, api = api_key, attr = attributes)
-            #
-            # # file_name, urllib.request.urlretrieve(url, "testfile.txt")
-            # with urllib.request.urlopen(url) as f:
-            # # Get the data as a string.
-            #     response = f.read().decode('utf-8')
-            #
-            # # Read the first few lines to get info on datafile
-            # info_df = pd.read_csv(StringIO(response), nrows=1)
-            #
-            # # Create a dictionary for the info file.
-            # info_iter = {}
-            # for p in info_df:
-            #     info_iter[p] = info_df[p].iloc[0]
-            #
-            # df_iter = pd.read_csv(StringIO(response), skiprows=2)
-            #
-            # if np.diff(df_iter[0:2].Minute) == 30:
-            #     interval = '30'
-            #     info_iter['interval_in_hours'] = 0.5
-            # elif np.diff(df_iter[0:2].Minute) == 0:
-            #     interval = '60'
-            #     info_iter['interval_in_hours'] = 1
-            # else:
-            #     print('Interval not understood!')
 
-            info_iter['interval_in_hours'] = interval / 60
+    # Pull data from NSRDB because either force_download=True or no cached datafile found.
+    print('Downloading weather data...')
+    for j in tqdm.tqdm(range(len(years))):
+        year = '{:.0f}'.format(years[j])
 
-            # Set the time index in the pandas dataframe:
-            year_iter = str(df_iter['Year'][0])
+        info_iter, df_iter = get_psm3(
+            latitude=lat,
+            longitude=lon,
+            api_key=api_key,
+            email=email,
+            names=year,
+            interval=30,
+            leap_day=False,
+            full_name=full_name,
+            affiliation=affiliation,
+            timeout=30)
+        #
+        # # Declare url string
+        # url = 'http://developer.nrel.gov/api/solar/nsrdb_psm3_download.csv?wkt=POINT({lon}%20{lat})&names={year}&leap_day={leap}&interval={interval}&utc={utc}&full_name={name}&email={email}&affiliation={affiliation}&mailing_list={mailing_list}&reason={reason}&api_key={api}&attributes={attr}'.format(
+        # year = year, lat = lat, lon = lon, leap = leap_year, interval = interval,
+        # utc = utc, name = your_name, email = your_email,
+        # mailing_list = mailing_list, affiliation = your_affiliation,
+        # reason = reason_for_use, api = api_key, attr = attributes)
+        #
+        # # file_name, urllib.request.urlretrieve(url, "testfile.txt")
+        # with urllib.request.urlopen(url) as f:
+        # # Get the data as a string.
+        #     response = f.read().decode('utf-8')
+        #
+        # # Read the first few lines to get info on datafile
+        # info_df = pd.read_csv(StringIO(response), nrows=1)
+        #
+        # # Create a dictionary for the info file.
+        # info_iter = {}
+        # for p in info_df:
+        #     info_iter[p] = info_df[p].iloc[0]
+        #
+        # df_iter = pd.read_csv(StringIO(response), skiprows=2)
+        #
+        # if np.diff(df_iter[0:2].Minute) == 30:
+        #     interval = '30'
+        #     info_iter['interval_in_hours'] = 0.5
+        # elif np.diff(df_iter[0:2].Minute) == 0:
+        #     interval = '60'
+        #     info_iter['interval_in_hours'] = 1
+        # else:
+        #     print('Interval not understood!')
 
-            df_iter = df_iter.set_index(
-                pd.date_range('1/1/{yr}'.format(yr=year_iter),
-                              freq='{}Min'.format(interval),
-                              periods=len(df_iter)))
+        info_iter['interval_in_hours'] = interval / 60
 
-            df_iter.index = df_iter.index.tz_localize(
-                pytz.FixedOffset(float(info_iter['Time Zone'] * 60)))
+        # Set the time index in the pandas dataframe:
+        year_iter = str(df_iter['Year'][0])
 
-            if j == 0:
-                info = info_iter
-                df = df_iter
-            else:
-                df = df.append(df_iter)
+        df_iter = df_iter.set_index(
+            pd.date_range('1/1/{yr}'.format(yr=year_iter),
+                          freq='{}Min'.format(interval),
+                          periods=len(df_iter)))
 
-        info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
+        df_iter.index = df_iter.index.tz_localize(
+            pytz.FixedOffset(float(info_iter['Time Zone'] * 60)))
 
-        # Convert to int for lowering file size.
-        dni = np.array(df['DNI'].astype(np.int16))
-        dhi = np.array(df['DHI'].astype(np.int16))
-        ghi = np.array(df['GHI'].astype(np.int16))
-        temp_air = np.array(df['Temperature'].astype(np.float32))
-        wind_speed = np.array(df['Wind Speed'].astype(np.float16))
+        if j == 0:
+            info = info_iter
+            df = df_iter
+        else:
+            df = df.append(df_iter)
 
-        year = np.array(df['Year'].astype(np.int16))
-        month = np.array(df['Month'].astype(np.int8))
-        day = np.array(df['Day'].astype(np.int8))
-        hour = np.array(df['Hour'].astype(np.int8))
-        minute = np.array(df['Minute'].astype(np.int8))
+    info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
 
-        cache_directory = 'cached_weather_data'
-        if not os.path.exists(cache_directory):
-            print('Creating cache directory')
-            os.mkdir(cache_directory)
+    # Convert to int for lowering file size.
+    dni = np.array(df['DNI'].astype(np.int16))
+    dhi = np.array(df['DHI'].astype(np.int16))
+    ghi = np.array(df['GHI'].astype(np.int16))
+    temp_air = np.array(df['Temperature'].astype(np.float32))
+    wind_speed = np.array(df['Wind Speed'].astype(np.float16))
 
-        save_filename = os.path.join(cache_directory,
-                                     '{}_{:3.2f}_{:3.2f}_search-point_{:3.3f}_{:3.3f}.npz'.format(
-                                         info['Location ID'], info['Latitude'],
-                                         info['Longitude'], lat, lon)
-                                     )
-        # Write to file.
-        np.savez_compressed(save_filename,
-                            Source=info['Source'],
-                            Location_ID=info['Location ID'],
-                            Latitude=info['Latitude'],
-                            Longitude=info['Longitude'],
-                            Elevation=info['Elevation'],
-                            local_time_zone=info['Local Time Zone'],
-                            interval_in_hours=info['interval_in_hours'],
-                            timedelta_in_years=info['timedelta_in_years'],
-                            Version=info['Version'],
-                            dni=dni,
-                            dhi=dhi,
-                            ghi=ghi,
-                            temp_air=temp_air,
-                            wind_speed=wind_speed,
-                            year=year,
-                            month=month,
-                            day=day,
-                            hour=hour,
-                            minute=minute)
-        # Reload from file.
-        df, info = nsrdb.get_local_weather_data(save_filename)
+    year = np.array(df['Year'].astype(np.int16))
+    month = np.array(df['Month'].astype(np.int8))
+    day = np.array(df['Day'].astype(np.int8))
+    hour = np.array(df['Hour'].astype(np.int8))
+    minute = np.array(df['Minute'].astype(np.int8))
+
+    cache_directory = 'cached_weather_data'
+    if not os.path.exists(cache_directory):
+        print('Creating cache directory')
+        os.mkdir(cache_directory)
+
+    save_filename = os.path.join(cache_directory,
+                                 '{}_{:3.2f}_{:3.2f}_search-point_{:3.3f}_{:3.3f}.npz'.format(
+                                     info['Location ID'], info['Latitude'],
+                                     info['Longitude'], lat, lon)
+                                 )
+    # Write to file.
+    np.savez_compressed(save_filename,
+                        Source=info['Source'],
+                        Location_ID=info['Location ID'],
+                        Latitude=info['Latitude'],
+                        Longitude=info['Longitude'],
+                        Elevation=info['Elevation'],
+                        local_time_zone=info['Local Time Zone'],
+                        interval_in_hours=info['interval_in_hours'],
+                        timedelta_in_years=info['timedelta_in_years'],
+                        Version=info['Version'],
+                        dni=dni,
+                        dhi=dhi,
+                        ghi=ghi,
+                        temp_air=temp_air,
+                        wind_speed=wind_speed,
+                        year=year,
+                        month=month,
+                        day=day,
+                        hour=hour,
+                        minute=minute)
+    # Reload from file.
+    df, info = nsrdb.get_local_weather_data(save_filename)
 
     return df, info
 
