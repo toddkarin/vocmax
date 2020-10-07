@@ -226,7 +226,7 @@ def get_weather_data(lat, lon,
 
 
     # Pull data from NSRDB because either force_download=True or no cached datafile found.
-    print('Downloading weather data...')
+    print('Downloading weather data and saving to "cached_weather_data" ...')
     for j in tqdm.tqdm(range(len(years))):
         year = '{:.0f}'.format(years[j])
 
@@ -292,6 +292,7 @@ def get_weather_data(lat, lon,
         else:
             df = df.append(df_iter)
 
+    # Process/compress the downloaded dfs.
     info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
 
     # Convert to int for lowering file size.
