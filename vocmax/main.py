@@ -28,6 +28,7 @@ import pytz
 import sys
 import os
 import warnings
+from pvlib.iotools import get_psm3
 
 if sys.version_info[0] < 3:
     from StringIO import StringIO
@@ -108,15 +109,11 @@ def get_weather_data(lat, lon,
                      cache_directory='cached_weather_data',
                      attributes='ghi,dhi,dni,wind_speed,air_temperature',
                      force_download=False,
-                     your_name='PV Researcher',
-                     your_email='researcheremail@gmail.com',
-                     reason_for_use='String+Length+Design',
-                     your_affiliation='Solar+Company+X',
-                     join_mailing_list=False,
-                     use_utc=False,
-                     include_leap_year=True,
+                     full_name='PV Researcher',
+                     email='researcheremail@gmail.com',
+                     affiliation='vocmax',
                      years=np.arange(1998, 2018.5),
-                     interval='30',
+                     interval=30,
                      ):
     """
 
@@ -148,64 +145,34 @@ def get_weather_data(lat, lon,
 
     Parameters
     ----------
-    lat : float
-        latitude of search point in fractional degrees
-
-    lon : float
-        longitude of search point in fractional degrees
-
+    lat : float or int
+        latitude in decimal degrees, between -90 and 90, north is positive
+    lon : float or int
+        longitude in decimal degrees, between -180 and 180, east is positive
     api_key : str
-        api key for NSRDB, available at https://developer.nrel.gov/signup/
-
-    cache_directory : str
-        Location to stored cached data files. Default is the subdirectory
-        'cached_weather_data' inside the current working directory.
-
-    attributes : str
-        comma separated list of attributes to download. Default is 'ghi,dhi,
-        dni,wind_speed,air_temperature'
+        NREL Developer Network API key
+    email : str
+        NREL API uses this to automatically communicate messages back
+        to the user only if necessary
+    names : str, default 'tmy'
+        PSM3 API parameter specifing year or TMY variant to download, see notes
+        below for options
+    interval : int, default 60
+        interval size in minutes, can only be either 30 or 60.  Only used for
+        single-year requests (i.e., it is ignored for tmy/tgy/tdy requests).
+    leap_day : boolean, default False
+        include leap day in the results.  Only used for single-year requests
+        (i.e., it is ignored for tmy/tgy/tdy requests).
+    full_name : str, default 'pvlib python'
+        optional
+    affiliation : str, default 'pvlib python'
+        optional
+    timeout : int, default 30
+        time in seconds to wait for server response before timeout
 
     force_download : bool
         If true, force downloading of weather data regardless of weather
         that particular location has already been downloaded. Default is false.
-
-    your_name : str
-
-        Your name for the api call, default is 'PV Researcher'
-
-    your_email : str
-
-        Your email for the api call, default is 'researcher.email@gmail.com'
-
-    reason_for_use : str
-
-        Reason for use for the api call, default is 'String Length Design'
-
-    your_affiliation : str
-
-        Affiliation for the api call, default is 'Solar Company X'
-
-    join_mailing_list : bool
-
-        Whether to join the NSRDB mailing list, default is False.
-
-    use_utc
-
-        Whether to download data using UTC as the time axis. default is False
-
-    include_leap_year : bool
-
-        Whether to include data for the day on the leap year. Default is True.
-
-    years : list
-
-        Numeric list of years to download data for. Default is np.arange(1998,2017.5)
-
-
-    interval : str
-
-        Time step for downloaded weather data in mintues. Options ars '60' or
-        '30' (default).
 
     tz_localize : bool
 
@@ -225,26 +192,6 @@ def get_weather_data(lat, lon,
 
 
     """
-
-    # Parse input
-    your_name = your_name.replace(' ', '+')
-    reason_for_use = reason_for_use.replace(' ', '+')
-    your_affiliation = your_affiliation.replace(' ', '+')
-
-    if join_mailing_list:
-        mailing_list = 'true'
-    else:
-        mailing_list = 'false'
-
-    if use_utc:
-        utc = 'true'
-    else:
-        utc = 'false'
-
-    if include_leap_year:
-        leap_year = 'true'
-    else:
-        leap_year = 'false'
 
     # First check if data exists in cahce directory.
     if not force_download:
@@ -276,49 +223,63 @@ def get_weather_data(lat, lon,
             # No cached weather data found.
             pass
 
-    # Pull data from NSRDB because either force_download=True or no cached datafile found.
-    print('Downloading weather data...')
-    for j in tqdm.tqdm(range(len(years))):
-        year = '{:.0f}'.format(years[j])
+    else:
+        # Pull data from NSRDB because either force_download=True or no cached datafile found.
+        print('Downloading weather data...')
+        for j in tqdm.tqdm(range(len(years))):
+            year = '{:.0f}'.format(years[j])
 
-        # Declare url string
-        url = 'http://developer.nrel.gov/api/solar/nsrdb_psm3_download.csv?wkt=POINT({lon}%20{lat})&names={year}&leap_day={leap}&interval={interval}&utc={utc}&full_name={name}&email={email}&affiliation={affiliation}&mailing_list={mailing_list}&reason={reason}&api_key={api}&attributes={attr}'.format(
-            year=year, lat=lat, lon=lon, leap=leap_year, interval=interval,
-            utc=utc, name=your_name, email=your_email,
-            mailing_list=mailing_list, affiliation=your_affiliation,
-            reason=reason_for_use, api=api_key, attr=attributes)
+            info_iter, df_iter = get_psm3(
+                latitude=lat,
+                longitude=lon,
+                api_key=api_key,
+                email=email,
+                names=year,
+                interval=30,
+                leap_day=False,
+                full_name=full_name,
+                affiliation=affiliation,
+                timeout=30)
+            #
+            # # Declare url string
+            # url = 'http://developer.nrel.gov/api/solar/nsrdb_psm3_download.csv?wkt=POINT({lon}%20{lat})&names={year}&leap_day={leap}&interval={interval}&utc={utc}&full_name={name}&email={email}&affiliation={affiliation}&mailing_list={mailing_list}&reason={reason}&api_key={api}&attributes={attr}'.format(
+            # year = year, lat = lat, lon = lon, leap = leap_year, interval = interval,
+            # utc = utc, name = your_name, email = your_email,
+            # mailing_list = mailing_list, affiliation = your_affiliation,
+            # reason = reason_for_use, api = api_key, attr = attributes)
+            #
+            # # file_name, urllib.request.urlretrieve(url, "testfile.txt")
+            # with urllib.request.urlopen(url) as f:
+            # # Get the data as a string.
+            #     response = f.read().decode('utf-8')
+            #
+            # # Read the first few lines to get info on datafile
+            # info_df = pd.read_csv(StringIO(response), nrows=1)
+            #
+            # # Create a dictionary for the info file.
+            # info_iter = {}
+            # for p in info_df:
+            #     info_iter[p] = info_df[p].iloc[0]
+            #
+            # df_iter = pd.read_csv(StringIO(response), skiprows=2)
+            #
+            # if np.diff(df_iter[0:2].Minute) == 30:
+            #     interval = '30'
+            #     info_iter['interval_in_hours'] = 0.5
+            # elif np.diff(df_iter[0:2].Minute) == 0:
+            #     interval = '60'
+            #     info_iter['interval_in_hours'] = 1
+            # else:
+            #     print('Interval not understood!')
 
-        # file_name, urllib.request.urlretrieve(url, "testfile.txt")
-        with urllib.request.urlopen(url) as f:
-
-            # Get the data as a string.
-            response = f.read().decode('utf-8')
-
-            # Read the first few lines to get info on datafile
-            info_df = pd.read_csv(StringIO(response), nrows=1)
-
-            # Create a dictionary for the info file.
-            info_iter = {}
-            for p in info_df:
-                info_iter[p] = info_df[p].iloc[0]
-
-            df_iter = pd.read_csv(StringIO(response), skiprows=2)
-
-            if np.diff(df_iter[0:2].Minute) == 30:
-                interval = '30'
-                info_iter['interval_in_hours'] = 0.5
-            elif np.diff(df_iter[0:2].Minute) == 0:
-                interval = '60'
-                info_iter['interval_in_hours'] = 1
-            else:
-                print('Interval not understood!')
+            info_iter['interval_in_hours'] = interval / 60
 
             # Set the time index in the pandas dataframe:
             year_iter = str(df_iter['Year'][0])
 
             df_iter = df_iter.set_index(
                 pd.date_range('1/1/{yr}'.format(yr=year_iter),
-                              freq=interval + 'Min',
+                              freq='{}Min'.format(interval),
                               periods=len(df_iter)))
 
             df_iter.index = df_iter.index.tz_localize(
@@ -330,68 +291,55 @@ def get_weather_data(lat, lon,
             else:
                 df = df.append(df_iter)
 
-    info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
+        info['timedelta_in_years'] = (df.index[-1] - df.index[0]).days / 365
 
-    # Convert to int for lowering file size.
-    dni = np.array(df['DNI'].astype(np.int16))
-    dhi = np.array(df['DHI'].astype(np.int16))
-    ghi = np.array(df['GHI'].astype(np.int16))
-    temp_air = np.array(df['Temperature'].astype(np.float32))
-    wind_speed = np.array(df['Wind Speed'].astype(np.float16))
+        # Convert to int for lowering file size.
+        dni = np.array(df['DNI'].astype(np.int16))
+        dhi = np.array(df['DHI'].astype(np.int16))
+        ghi = np.array(df['GHI'].astype(np.int16))
+        temp_air = np.array(df['Temperature'].astype(np.float32))
+        wind_speed = np.array(df['Wind Speed'].astype(np.float16))
 
-    year = np.array(df['Year'].astype(np.int16))
-    month = np.array(df['Month'].astype(np.int8))
-    day = np.array(df['Day'].astype(np.int8))
-    hour = np.array(df['Hour'].astype(np.int8))
-    minute = np.array(df['Minute'].astype(np.int8))
+        year = np.array(df['Year'].astype(np.int16))
+        month = np.array(df['Month'].astype(np.int8))
+        day = np.array(df['Day'].astype(np.int8))
+        hour = np.array(df['Hour'].astype(np.int8))
+        minute = np.array(df['Minute'].astype(np.int8))
 
-    cache_directory = 'cached_weather_data'
-    if not os.path.exists(cache_directory):
-        print('Creating cache directory')
-        os.mkdir(cache_directory)
+        cache_directory = 'cached_weather_data'
+        if not os.path.exists(cache_directory):
+            print('Creating cache directory')
+            os.mkdir(cache_directory)
 
-    save_filename = os.path.join(cache_directory,
-                                 '{}_{:3.2f}_{:3.2f}_search-point_{:3.3f}_{:3.3f}.npz'.format(
-                                     info['Location ID'], info['Latitude'],
-                                     info['Longitude'], lat, lon)
-                                 )
+        save_filename = os.path.join(cache_directory,
+                                     '{}_{:3.2f}_{:3.2f}_search-point_{:3.3f}_{:3.3f}.npz'.format(
+                                         info['Location ID'], info['Latitude'],
+                                         info['Longitude'], lat, lon)
+                                     )
+        # Write to file.
+        np.savez_compressed(save_filename,
+                            Source=info['Source'],
+                            Location_ID=info['Location ID'],
+                            Latitude=info['Latitude'],
+                            Longitude=info['Longitude'],
+                            Elevation=info['Elevation'],
+                            local_time_zone=info['Local Time Zone'],
+                            interval_in_hours=info['interval_in_hours'],
+                            timedelta_in_years=info['timedelta_in_years'],
+                            Version=info['Version'],
+                            dni=dni,
+                            dhi=dhi,
+                            ghi=ghi,
+                            temp_air=temp_air,
+                            wind_speed=wind_speed,
+                            year=year,
+                            month=month,
+                            day=day,
+                            hour=hour,
+                            minute=minute)
+        # Reload from file.
+        df, info = nsrdb.get_local_weather_data(save_filename)
 
-    np.savez_compressed(save_filename,
-                        Source=info['Source'],
-                        Location_ID=info['Location ID'],
-                        Latitude=info['Latitude'],
-                        Longitude=info['Longitude'],
-                        Elevation=info['Elevation'],
-                        local_time_zone=info['Local Time Zone'],
-                        leap_year=leap_year,
-                        utc=utc,
-                        interval_in_hours=info['interval_in_hours'],
-                        timedelta_in_years=info['timedelta_in_years'],
-                        Version=info['Version'],
-                        dni=dni,
-                        dhi=dhi,
-                        ghi=ghi,
-                        temp_air=temp_air,
-                        wind_speed=wind_speed,
-                        year=year,
-                        month=month,
-                        day=day,
-                        hour=hour,
-                        minute=minute)
-
-    df.rename(columns={'Year': 'year',
-                       'Month': 'month',
-                       'Day': 'day',
-                       'Hour': 'hour',
-                       'Minute': 'minute',
-                       'DNI': 'dni',
-                       'GHI': 'ghi',
-                       'DHI': 'dhi',
-                       'Temperature': 'temp_air',
-                       'Wind Speed': 'wind_speed',
-                       }, inplace=True)
-
-    # TODO: Consider reloading from the file for consistency with future iterations.
     return df, info
 
 
@@ -1017,12 +965,10 @@ def simulate_system(weather, info, module_parameters,
                                 ['a', 'b', 'deltaT']}
     else:
         temperature_model_parameters = \
-        pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']
+            pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS['sapm']
 
         thermal_model_params = temperature_model_parameters[
             thermal_model['named_model']]
-
-
 
     temperature_cell = pvlib.temperature.sapm_cell(
         poa_global=total_irrad['poa_global'],
@@ -1044,7 +990,7 @@ def simulate_system(weather, info, module_parameters,
     if thermal_model['open_circuit_rise']:
         temperature_cell = weather['temp_air'] + \
                            (temperature_cell - weather['temp_air']) / (
-                                       1 - module_parameters['efficiency'])
+                                   1 - module_parameters['efficiency'])
 
     # Spectral loss is typically very small on order of a few percent, assume no
     # spectral loss for simplicity
@@ -1608,8 +1554,8 @@ def make_voc_summary(df, info, module_parameters,
 
     max_module_voltage_with_safety_factor = voc_summary[
                                                 'max_module_voltage'] * (
-                                                        1 + voc_summary[
-                                                    'safety_factor'])
+                                                    1 + voc_summary[
+                                                'safety_factor'])
 
     mean_yearly_min_temp = calculate_mean_yearly_min_temp(df.index,
                                                           df['temp_air'])
@@ -2131,8 +2077,9 @@ def sapm_temperature_to_get_voc(effective_irradiance,
     delta_ref = diode_factor * kb * (reference_temperature + 273.15) / q
     delta_prime = diode_factor * kb / q
 
-    temperature_cell = reference_temperature + (Voc - Voco - cells_in_series * delta_ref * logEe) / (
-                cells_in_series * delta_prime * logEe + Bvoco)
+    temperature_cell = reference_temperature + (
+            Voc - Voco - cells_in_series * delta_ref * logEe) / (
+                               cells_in_series * delta_prime * logEe + Bvoco)
     return temperature_cell
 
 
